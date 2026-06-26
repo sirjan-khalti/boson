@@ -1,4 +1,5 @@
-import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
+﻿import { useState, useEffect } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,54 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { API_BASE } from "@/lib/constants";
-
-
-export const Route = createFileRoute("/jobs/$jobId")({
-  loader: async ({ params }) => {
-    try {
-      const res = await fetch(`${API_BASE}/jobs/fetch`);
-      if (!res.ok) throw new Error("Failed to fetch jobs");
-      const jobsList = await res.json();
-      const job = jobsList.find((j: any) => j.id === params.jobId);
-      if (!job || job.status !== "Active") throw notFound();
-      return { job, allJobs: jobsList };
-    } catch (e: any) {
-      throw new Error("Failed to load job from server");
-    }
-  },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: `${loaderData.job.title} — Khalti Careers` },
-          { name: "description", content: loaderData.job.summary },
-        ]
-      : [{ title: "Job — Khalti Careers" }],
-  }),
-  component: JobDetail,
-  notFoundComponent: () => {
-    const { jobId } = Route.useParams();
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
-        <h1 className="text-2xl font-bold">Job "{jobId}" not found or has been closed</h1>
-        <Button asChild className="mt-6 bg-khalti text-khalti-foreground hover:bg-khalti/90">
-          <Link to="/jobs">See open roles</Link>
-        </Button>
-      </div>
-    );
-  },
-  errorComponent: ({ error, reset }) => {
-    const router = useRouter();
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
-        <h1 className="text-xl font-semibold">Couldn't load this role</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
-        <Button onClick={() => { router.invalidate(); reset(); }} className="mt-6">
-          Try again
-        </Button>
-      </div>
-    );
-  },
-});
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -85,8 +38,49 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-function JobDetail() {
-  const { job, allJobs = [] } = Route.useLoaderData();
+export default function JobDetail() {
+  const { jobId } = useParams<{ jobId: string }>();
+  const navigate = useNavigate();
+  const [job, setJob] = useState<any>(null);
+  const [allJobs, setAllJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/jobs/fetch`)
+      .then((res) => { if (!res.ok) throw new Error("Failed to fetch jobs"); return res.json(); })
+      .then((jobs) => {
+        const found = jobs.find((j: any) => j.id === jobId);
+        if (!found || found.status !== "Active") { navigate("/jobs", { replace: true }); return; }
+        setJob(found);
+        setAllJobs(jobs);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [jobId, navigate]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <div className="text-muted-foreground">Loading role...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <h1 className="text-xl font-semibold">Couldn't load this role</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+        <Button onClick={() => window.location.reload()} className="mt-6">
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (!job) return null;
+
   const related = allJobs.filter((j: any) => j.id !== job.id && j.department === job.department && j.status === "Active").slice(0, 2);
 
   return (
@@ -136,8 +130,7 @@ function JobDetail() {
                 {related.map((r) => (
                   <Link
                     key={r.id}
-                    to="/jobs/$jobId"
-                    params={{ jobId: r.id }}
+                    to={`/jobs/${r.id}`}
                     className="group rounded-2xl border border-border/70 bg-white p-5 transition-all hover:border-khalti/40 hover:shadow-soft"
                   >
                     <div className="text-xs text-muted-foreground">{r.department}</div>
@@ -166,7 +159,7 @@ function JobDetail() {
               size="lg"
               className="mt-5 w-full bg-khalti text-khalti-foreground hover:bg-khalti/90"
             >
-              <Link to="/apply/$jobId" params={{ jobId: job.id }}>
+              <Link to={`/apply/${job.id}`}>
                 Apply for this role <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -182,7 +175,7 @@ function JobDetail() {
       {/* Mobile sticky bar */}
       <div className="sticky bottom-0 z-30 border-t border-border bg-background/95 p-3 backdrop-blur lg:hidden">
         <Button asChild size="lg" className="w-full bg-khalti text-khalti-foreground hover:bg-khalti/90">
-          <Link to="/apply/$jobId" params={{ jobId: job.id }}>
+          <Link to={`/apply/${job.id}`}>
             Apply for this role
           </Link>
         </Button>

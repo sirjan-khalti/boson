@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+﻿import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
 import {
   ArrowRight,
@@ -22,20 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { departments, API_BASE } from "@/lib/constants";
 import { JobCard } from "@/components/jobs/JobCard";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Khalti Careers — Build Nepal's Digital Future" },
-      {
-        name: "description",
-        content:
-          "Join Khalti — the team shaping the future of digital payments and financial technology in Nepal.",
-      },
-    ],
-  }),
-  component: Landing,
-});
-
 const iconMap = {
   Code2,
   ShieldCheck,
@@ -44,7 +30,7 @@ const iconMap = {
   Settings2,
 } as const;
 
-function Landing() {
+export default function Landing() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [jobsList, setJobsList] = useState<any[]>([]);
@@ -134,7 +120,7 @@ function Landing() {
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/jobs", search: { q: query } as never });
+    navigate(`/jobs?q=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -220,6 +206,48 @@ function Landing() {
         </div>
       </section>
 
+      {/* DEPARTMENTS */}
+      <section id="departments" className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mb-12 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <Badge variant="secondary" className="rounded-full bg-accent text-khalti">
+              Departments
+            </Badge>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Find your team
+            </h2>
+            <p className="mt-2 max-w-xl text-muted-foreground">
+              From engineers to risk analysts — explore the teams building Nepal's fintech.
+            </p>
+          </div>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link to="/jobs">View all openings <ArrowRight className="ml-2 h-4 w-4" /></Link>
+          </Button>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {dynamicDepartments.map((d) => {
+            const Icon = iconMap[d.icon as keyof typeof iconMap] || Settings2;
+            return (
+              <Link key={d.name} to="/jobs" className="group">
+                <Card className="relative h-full overflow-hidden rounded-2xl border-border/70 p-6 transition-all hover:border-khalti/40 hover:shadow-soft">
+                  <div className="mb-5 grid h-12 w-12 place-items-center rounded-xl bg-accent text-khalti transition-colors group-hover:bg-khalti group-hover:text-khalti-foreground">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold tracking-tight">{d.name}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{d.description}</p>
+                  <div className="mt-6 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{d.openings} open roles</span>
+                    <span className="inline-flex items-center gap-1 font-medium text-khalti">
+                      Explore <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       {/* FEATURED JOBS */}
       <section className="bg-secondary/40 py-20">

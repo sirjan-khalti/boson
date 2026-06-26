@@ -585,51 +585,26 @@ export function CandidateModal() {
                     </div>
                   </Section>
 
-                  {candidateJson && candidateJson.certifications && candidateJson.certifications.length > 0 && (
-                    <Section title="Certifications" icon={Award}>
-                      <ul className="space-y-2 text-sm">
-                        {candidateJson.certifications.map((cert, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <Award className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /> 
-                            <div>
-                              <div className="font-medium">{cert.name}</div>
-                              {(cert.issuer || cert.issue_date) && (
-                                <div className="text-xs text-muted-foreground">
-                                  {cert.issuer} {cert.issuer && cert.issue_date ? '·' : ''} {cert.issue_date}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  )}
+                  <Section title="Certifications" icon={Award}>
+                    <ul className="space-y-1 text-sm">
+                      {c.certifications.map((cert) => (
+                        <li key={cert} className="flex items-center gap-2">
+                          <Award className="h-3.5 w-3.5 text-primary" /> {cert}
+                        </li>
+                      ))}
+                    </ul>
+                  </Section>
 
-                  {candidateJson && candidateJson.achievements && candidateJson.achievements.length > 0 && (
-                    <Section title="Achievements" icon={Trophy}>
-                      <ul className="space-y-1.5 text-sm text-foreground/90">
-                        {candidateJson.achievements.map((a, idx) => (
-                          <li key={idx} className="flex gap-2">
-                            <Trophy className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                            <span>{a}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  )}
-
-                  {candidateJson && candidateJson.awards && candidateJson.awards.length > 0 && (
-                    <Section title="Awards" icon={Award}>
-                      <ul className="space-y-1.5 text-sm text-foreground/90">
-                        {candidateJson.awards.map((a, idx) => (
-                          <li key={idx} className="flex gap-2">
-                            <Star className="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />
-                            <span>{a}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  )}
+                  <Section title="Achievements" icon={Trophy}>
+                    <ul className="space-y-1.5 text-sm text-foreground/90">
+                      {c.achievements.map((a) => (
+                        <li key={a} className="flex gap-2">
+                          <Trophy className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                          <span>{a}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Section>
 
                   {candidateJson && candidateJson.projects && (
                     <Section title="Projects" icon={Briefcase}>

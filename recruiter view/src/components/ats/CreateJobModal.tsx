@@ -3,7 +3,7 @@ import { X, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAts } from "@/lib/store";
 import { API_BASE } from "@/lib/config";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 
 const DEPARTMENTS = ["Engineering", "Product", "Design", "Data", "Legal", "Risk & Compliance", "Operations", "Marketing"];
 const TYPES = ["Full-time", "Part-time", "Intern", "Trainee"] as const;
@@ -65,7 +65,7 @@ export function CreateJobModal() {
       return;
     }
     try {
-      const newJobId = await createJob({
+      await createJob({
         title: title.trim(),
         department: finalDept,
         location: location.trim() || "Kathmandu",
@@ -74,7 +74,6 @@ export function CreateJobModal() {
         skills: skillsInput.split(",").map((s) => s.trim()).filter(Boolean),
       });
       close();
-      navigate({ to: "/candidates", search: { jobId: newJobId } });
     } catch (err: any) {
       alert(err.message || "Failed to create job");
     }

@@ -1,14 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { 
-  ShieldAlert, 
-  History, 
-  Search, 
-  Briefcase, 
-  UserPlus, 
-  UserCog, 
-  Settings, 
-  RefreshCw, 
+import {
+  ShieldAlert,
+  History,
+  Search,
+  Briefcase,
+  UserPlus,
+  UserCog,
+  Settings,
+  RefreshCw,
   Filter,
   ChevronLeft,
   ChevronRight
@@ -27,8 +27,6 @@ type ActivityLog = {
   job_id: string | null;
   candidate_id: string | null;
 };
-
-export const Route = createFileRoute("/_app/activity-logs")({ component: ActivityLogsPage });
 
 const actionIconMap: Record<string, React.ElementType> = {
   job_created: Briefcase,
@@ -66,7 +64,7 @@ const actionColorMap: Record<string, { bg: string; text: string; border: string 
   },
 };
 
-function ActivityLogsPage() {
+export default function ActivityLogsPage() {
   const { user, isAdmin } = useAuth();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +82,7 @@ function ActivityLogsPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reset to page 1 on search change
+      setPage(1);
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
@@ -93,7 +91,7 @@ function ActivityLogsPage() {
     setLoading(true);
     try {
       const apiBase = API_BASE;
-      const url = new URL(`${apiBase}/activity-logs/fetch`, window.location.origin);
+      const url = new URL(`${apiBase}/activity-logs/fetch`);
       url.searchParams.append("page", p.toString());
       url.searchParams.append("size", s.toString());
       if (type && type !== "all") {
@@ -102,13 +100,13 @@ function ActivityLogsPage() {
       if (query.trim()) {
         url.searchParams.append("search", query.trim());
       }
-      
+
       const headers: Record<string, string> = {};
       const token = getToken();
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      
+
       const res = await fetch(url.toString(), {
         headers,
         credentials: "include"
@@ -158,7 +156,7 @@ function ActivityLogsPage() {
 
   const formatTimestamp = (dateStr: string) => {
     try {
-      const date = new Date(dateStr + "Z"); // Add Z if timestamp is UTC from database
+      const date = new Date(dateStr + "Z");
       return date.toLocaleString(undefined, {
         dateStyle: "medium",
         timeStyle: "short",
@@ -177,7 +175,7 @@ function ActivityLogsPage() {
     const maxVisible = 5;
     let startPage = Math.max(1, page - 2);
     let endPage = Math.min(pages, startPage + maxVisible - 1);
-    
+
     if (endPage - startPage < maxVisible - 1) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
@@ -189,8 +187,8 @@ function ActivityLogsPage() {
           onClick={() => setPage(i)}
           className={cn(
             "h-8 w-8 rounded-lg text-xs font-semibold transition active:scale-95",
-            page === i 
-              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20" 
+            page === i
+              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
               : "border border-border bg-background hover:bg-muted text-foreground"
           )}
         >
@@ -237,7 +235,7 @@ function ActivityLogsPage() {
             value={filterType}
             onChange={(e) => {
               setFilterType(e.target.value);
-              setPage(1); // Reset page on filter type change
+              setPage(1);
             }}
             className="h-10 rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-medium min-w-[180px]"
           >
@@ -273,7 +271,7 @@ function ActivityLogsPage() {
                 text: "text-foreground",
                 border: "border-border",
               };
-              
+
               return (
                 <div key={log.id} className="p-4 sm:p-5 flex items-start gap-4 hover:bg-muted/10 transition-colors">
                   {/* Action Icon */}
@@ -318,7 +316,7 @@ function ActivityLogsPage() {
             <span className="font-semibold text-foreground">{Math.min(page * size, total)}</span> of{" "}
             <span className="font-semibold text-foreground">{total}</span> results
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -327,11 +325,11 @@ function ActivityLogsPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            
+
             <div className="flex items-center gap-1">
               {renderPageNumbers()}
             </div>
-            
+
             <button
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
               disabled={page === pages || pages === 0}
@@ -366,4 +364,3 @@ function ActivityLogsPage() {
     </div>
   );
 }
-

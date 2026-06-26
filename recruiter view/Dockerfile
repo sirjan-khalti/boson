@@ -5,14 +5,10 @@ COPY package.json bun.lock bunfig.toml ./
 RUN bun install
 
 COPY . .
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
-RUN bun run build
 
 EXPOSE 3001
 
 ENV PORT=3001
 ENV HOST=0.0.0.0
-ENV NODE_ENV=production
 
-CMD ["bun", "run", "start"]
+CMD ["bun", "run", "dev", "--host", "0.0.0.0", "--port", "3001"]

@@ -1,18 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowLeft, Home, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobCard } from "@/components/jobs/JobCard";
 import { API_BASE } from "@/lib/constants";
 
-export const Route = createFileRoute("/success")({
-  head: () => ({
-    meta: [{ title: "Application Submitted — Khalti Careers" }],
-  }),
-  component: SuccessPage,
-});
-
-function SuccessPage() {
+export default function SuccessPage() {
   const [jobsList, setJobsList] = useState<any[]>([]);
 
   useEffect(() => {

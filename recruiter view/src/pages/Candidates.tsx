@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import { Search, Download, X, Briefcase, Gem, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { MatchBadge, MatchScore } from "@/components/ats/MatchBadge";
@@ -9,23 +9,14 @@ import type { MatchTier } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
-type CandidatesSearch = { jobId?: string };
-
-export const Route = createFileRoute("/_app/candidates/")({
-  component: CandidatesPage,
-  validateSearch: (s: Record<string, unknown>): CandidatesSearch => ({
-    jobId: typeof s.jobId === "string" ? s.jobId : undefined,
-  }),
-});
-
 const ALL_STAGES = ["All", "Applied", "Screening", "Shortlisted", "Interview", "Final Review", "Offer", "Hired", "Rejected"];
 
-function CandidatesPage() {
-  const candidates = useAts((s) => s.candidates); // Loaded into the store by our fetches
+export default function CandidatesPage() {
+  const candidates = useAts((s) => s.candidates);
   const jobs = useAts((s) => s.jobs);
   const openCandidate = useAts((s) => s.openCandidate);
-  const { jobId } = Route.useSearch();
-  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const jobId = searchParams.get("jobId") ?? undefined;
 
   // Filter & Search Inputs
   const [q, setQ] = useState("");
@@ -184,7 +175,7 @@ function CandidatesPage() {
   };
 
   const setJob = (v: string) =>
-    navigate({ to: "/candidates", search: v ? { jobId: v } : {} });
+    v ? setSearchParams({ jobId: v }) : setSearchParams({});
 
   const toggle = (id: string) => {
     setSelected((s) => {
@@ -210,7 +201,7 @@ function CandidatesPage() {
         size: 10000,
       });
 
-      const targets = selected.size > 0 
+      const targets = selected.size > 0
         ? exportData.items.filter((c: any) => selected.has(c.id))
         : exportData.items;
 
@@ -289,7 +280,7 @@ function CandidatesPage() {
     const maxVisible = 5;
     let startPage = Math.max(1, page - 2);
     let endPage = Math.min(pages, startPage + maxVisible - 1);
-    
+
     if (endPage - startPage < maxVisible - 1) {
       startPage = Math.max(1, endPage - maxVisible + 1);
     }
@@ -301,8 +292,8 @@ function CandidatesPage() {
           onClick={() => setPage(i)}
           className={cn(
             "h-8 w-8 rounded-lg text-xs font-semibold transition active:scale-95",
-            page === i 
-              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20" 
+            page === i
+              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
               : "border border-border bg-background hover:bg-muted text-foreground"
           )}
         >
@@ -463,8 +454,7 @@ function CandidatesPage() {
             </span>
           </div>
           <Link
-            to="/pipeline"
-            search={{ jobId: selectedJob.id }}
+            to={`/pipeline?jobId=${selectedJob.id}`}
             className="text-xs text-primary hover:underline"
           >
             Open pipeline →
@@ -590,7 +580,7 @@ function CandidatesPage() {
             <span className="font-semibold text-foreground">{Math.min(page * size, total)}</span> of{" "}
             <span className="font-semibold text-foreground">{total}</span> results
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -599,11 +589,11 @@ function CandidatesPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            
+
             <div className="flex items-center gap-1">
               {renderPageNumbers()}
             </div>
-            
+
             <button
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
               disabled={page === pages || pages === 0}
@@ -672,4 +662,3 @@ function RangeSlider({
     </div>
   );
 }
-

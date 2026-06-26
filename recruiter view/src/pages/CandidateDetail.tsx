@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
@@ -82,7 +82,6 @@ function buildCsv(c: Candidate, jobTitle?: string) {
 }
 
 function buildCandidateJson(c: Candidate) {
-  // If the candidate has the new parsed schema fields from the backend, use them
   if (c.personal_info && c.personal_info.full_name) {
     return {
       personal_info: {
@@ -124,7 +123,6 @@ function buildCandidateJson(c: Candidate) {
     };
   }
 
-  // Fallback for legacy seeded candidates
   const parts = (c.name || "").trim().split(/\s+/);
   const firstName = parts[0] || "";
   const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
@@ -200,13 +198,8 @@ function buildCandidateJson(c: Candidate) {
   };
 }
 
-export const Route = createFileRoute("/_app/candidates/$candidateId")({
-  component: CandidateDetail,
-  notFoundComponent: () => <div className="p-8 text-center text-muted-foreground">Candidate not found</div>,
-});
-
-function CandidateDetail() {
-  const { candidateId } = Route.useParams();
+export default function CandidateDetail() {
+  const { candidateId } = useParams<{ candidateId: string }>();
   const jobs = useAts((s) => s.jobs);
   const fetchJobs = useAts((s) => s.fetchJobs);
 
@@ -228,7 +221,7 @@ function CandidateDetail() {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.getCandidateById(candidateId);
+        const data = await api.getCandidateById(candidateId!);
         if (active) {
           setCandidate(data);
         }
@@ -300,7 +293,6 @@ function CandidateDetail() {
 
   const job = jobs.find((j) => j.id === c.jobId);
   const candidateJson = buildCandidateJson(c);
-  const strengths = c.skills.slice(0, 4);
 
   return (
     <div className="space-y-5">
@@ -449,7 +441,7 @@ function CandidateDetail() {
             <h3 className="flex items-center gap-1.5 text-sm font-semibold">
               <Sparkles className="h-4 w-4 text-primary animate-pulse" /> Scoring Breakdown & Fit Analysis
             </h3>
-            
+
             {/* Fit Level Badge */}
             <div className="flex items-center justify-between rounded-xl bg-muted/50 p-3">
               <div>
@@ -474,12 +466,12 @@ function CandidateDetail() {
               {(Array.isArray(c.scores) ? c.scores : []).map((item: any) => {
                 const pct = item.weight > 0 ? (item.score / item.weight) * 100 : 0;
                 const isFailed = item.score < (item.weight / 2);
-                
+
                 let barColor = "bg-emerald-500";
                 let textColor = "text-emerald-600 dark:text-emerald-400";
                 let bgColor = "bg-emerald-50 dark:bg-emerald-950/20";
                 let ringColor = "ring-emerald-500/20";
-                
+
                 if (pct < 60) {
                   barColor = "bg-rose-500";
                   textColor = "text-rose-600 dark:text-rose-400";
@@ -491,7 +483,7 @@ function CandidateDetail() {
                   bgColor = "bg-amber-50 dark:bg-amber-950/20";
                   ringColor = "ring-amber-500/20";
                 }
-                
+
                 return (
                   <div key={item.criteria} className="group relative rounded-lg border border-border/50 bg-card p-2.5 transition hover:border-border">
                     <div className="flex items-start justify-between gap-2">
@@ -510,7 +502,7 @@ function CandidateDetail() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
                       <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${pct}%` }} />
                     </div>

@@ -1,35 +1,21 @@
 import { defineConfig } from "vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import tsConfigPaths from "vite-tsconfig-paths";
-import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [
-    tanstackStart({ server: { entry: "server" } }),
-    react(),
-    tailwindcss(),
-    tsConfigPaths(),
-  ],
+  plugins: [react(), tailwindcss(), tsconfigPaths()],
   server: {
-    hmr: {
-      host: "recruiters.khalti.com",
-      protocol: "wss",
-      clientPort: 443,
-    },
+    hmr: false,
     allowedHosts: ["careers.khalti.com", "recruiters.khalti.com"],
-    watch: {
-      ignored: ["**/*"],
-    },
     proxy: {
       "/api": {
-        target: process.env.API_INTERNAL_URL,
+        target: "http://khalti-careers-api:8000",
         changeOrigin: true,
       },
-      "/static": {
-        target: process.env.API_INTERNAL_URL,
-        changeOrigin: true,
-      },
+    },
+    watch: {
+      ignored: ["**/*"],
     },
   },
 });

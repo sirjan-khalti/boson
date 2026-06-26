@@ -1,31 +1,16 @@
 import { createContext, useContext, useEffect } from "react";
 
-type Theme = "light";
-type Ctx = { theme: Theme; toggle: () => void; setTheme: (t: Theme) => void };
+type Ctx = { theme: "light" };
 
-const ThemeCtx = createContext<Ctx>({
-  theme: "light",
-  toggle: () => {},
-  setTheme: () => {},
-});
+const ThemeCtx = createContext<Ctx>({ theme: "light" });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove("dark");
+    document.documentElement.classList.remove("dark");
+    try { localStorage.removeItem("theme"); } catch {}
   }, []);
 
-  return (
-    <ThemeCtx.Provider
-      value={{
-        theme: "light",
-        setTheme: () => {},
-        toggle: () => {},
-      }}
-    >
-      {children}
-    </ThemeCtx.Provider>
-  );
+  return <ThemeCtx.Provider value={{ theme: "light" }}>{children}</ThemeCtx.Provider>;
 }
 
 export const useTheme = () => useContext(ThemeCtx);

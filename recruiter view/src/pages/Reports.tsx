@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { api } from "@/lib/api";
 import {
@@ -24,10 +23,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-export const Route = createFileRoute("/_app/reports")({
-  component: ReportsPage,
-});
-
 const TOOLTIP = {
   contentStyle: {
     background: "var(--color-popover)",
@@ -37,7 +32,7 @@ const TOOLTIP = {
   },
 };
 
-function ReportsPage() {
+export default function ReportsPage() {
   // Default dates: 30 days ago to today
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const thirtyDaysAgoStr = useMemo(() => {

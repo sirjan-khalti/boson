@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,14 +15,13 @@ export function JobCard({ job }: { job: any }) {
             {job.department}
           </Badge>
           <h3 className="mt-3 text-lg font-semibold tracking-tight text-foreground hover:text-khalti transition-colors">
-            <Link to="/jobs/$jobId" params={{ jobId: job.id }}>
+            <Link to={`/jobs/${job.id}`}>
               {job.title}
             </Link>
           </h3>
         </div>
         <Link
-          to="/jobs/$jobId"
-          params={{ jobId: job.id }}
+          to={`/jobs/${job.id}`}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border text-foreground/70 transition-all group-hover:bg-khalti group-hover:text-khalti-foreground group-hover:border-khalti"
           aria-label={`View ${job.title}`}
         >
@@ -38,7 +37,7 @@ export function JobCard({ job }: { job: any }) {
       <div className="mt-auto flex items-center justify-between border-t border-border/60 pt-4">
         <span className="text-xs text-muted-foreground">Posted {job.postedAt || new Date(job.postedDate || Date.now()).toLocaleDateString()}</span>
         <Button asChild size="sm" className="bg-khalti text-khalti-foreground hover:bg-khalti/90">
-          <Link to="/jobs/$jobId" params={{ jobId: job.id }}>
+          <Link to={`/jobs/${job.id}`}>
             View details
           </Link>
         </Button>

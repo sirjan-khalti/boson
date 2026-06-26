@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,26 +13,13 @@ import {
 import { JobCard } from "@/components/jobs/JobCard";
 import { API_BASE } from "@/lib/constants";
 
-export const Route = createFileRoute("/jobs/")({
-  head: () => ({
-    meta: [
-      { title: "Open Roles — Khalti Careers" },
-      { name: "description", content: "Browse open roles across Product, Risk, Marketing, Support and Operations at Khalti." },
-    ],
-  }),
-  validateSearch: (s: Record<string, unknown>): { q?: string } => ({
-    q: typeof s.q === "string" ? s.q : undefined,
-  }),
-  component: JobsPage,
-});
-
-function JobsPage() {
-  const search = Route.useSearch();
-  const [q, setQ] = useState(search.q ?? "");
+export default function JobsPage() {
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [dept, setDept] = useState<string>("all");
   const [exp, setExp] = useState<string>("all");
   const [loc, setLoc] = useState<string>("all");
-  
+
   const [jobsList, setJobsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

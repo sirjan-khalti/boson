@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useMemo, useEffect, useState } from "react";
 import {
   DndContext, PointerSensor, useSensor, useSensors, useDraggable, useDroppable,
@@ -12,25 +12,17 @@ import { MatchBadge } from "@/components/ats/MatchBadge";
 import { useAts } from "@/lib/store";
 import { api } from "@/lib/api";
 
-type PipelineSearch = { jobId?: string };
-
-export const Route = createFileRoute("/_app/pipeline")({
-  component: PipelinePage,
-  validateSearch: (s: Record<string, unknown>): PipelineSearch => ({
-    jobId: typeof s.jobId === "string" ? s.jobId : undefined,
-  }),
-});
-
 const STAGES: CandidateStage[] = [
   "Applied", "Screening", "Shortlisted", "Interview", "Final Review", "Offer", "Hired", "Rejected",
 ];
 
-function PipelinePage() {
+export default function PipelinePage() {
   const seed = useAts((s) => s.candidates);
   const jobs = useAts((s) => s.jobs);
   const updateCandidateStage = useAts((s) => s.updateCandidateStage);
   const fetchJobs = useAts((s) => s.fetchJobs);
-  const { jobId } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get("jobId") ?? undefined;
   const navigate = useNavigate();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const [loading, setLoading] = useState(false);
@@ -96,7 +88,7 @@ function PipelinePage() {
     visible.forEach((c) => {
       let s: string = c.stage;
       if (s === "Interviewing") s = "Interview";
-      if (s === "Final Review") s = "Final Review"; // handle spaces
+      if (s === "Final Review") s = "Final Review";
       if (!g[s as CandidateStage]) {
         s = "Applied";
       }
@@ -129,7 +121,7 @@ function PipelinePage() {
             value={jobId ?? ""}
             onChange={(e) => {
               const v = e.target.value;
-              navigate({ to: "/pipeline", search: v ? { jobId: v } : {} });
+              navigate(v ? `/pipeline?jobId=${v}` : `/pipeline`);
             }}
             className="h-9 rounded-lg border border-border bg-card px-3 text-sm"
           >
@@ -141,7 +133,7 @@ function PipelinePage() {
             ))}
           </select>
           {jobId && (
-            <Link to="/candidates" search={{ jobId }} className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs">
+            <Link to={`/candidates?jobId=${jobId}`} className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs">
               View candidates
             </Link>
           )}

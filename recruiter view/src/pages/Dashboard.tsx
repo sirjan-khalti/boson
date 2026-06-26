@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Briefcase, UserPlus, CalendarCheck, Trophy, Sparkles, ArrowUpRight,
+  Briefcase, UserPlus, CalendarCheck, Trophy, Sparkles,
 } from "lucide-react";
 import {
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -16,9 +16,7 @@ import { useAts } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import type { CandidateStage } from "@/lib/data";
 
-export const Route = createFileRoute("/_app/")({ component: Dashboard });
-
-function Dashboard() {
+export default function Dashboard() {
   const candidates = useAts((s) => s.candidates);
   const jobs = useAts((s) => s.jobs);
   const fetchJobs = useAts((s) => s.fetchJobs);
@@ -49,7 +47,7 @@ function Dashboard() {
       .filter((j) => j.status === "Active")
       .map((j) => {
         const jobCandidates = candidates.filter((c) => c.jobId === j.id);
-        
+
         const applied = jobCandidates.filter((c) => c.stage === "Applied").length;
         const screening = jobCandidates.filter((c) => c.stage === "Screening").length;
         const shortlisted = jobCandidates.filter((c) => c.stage === "Shortlisted").length;

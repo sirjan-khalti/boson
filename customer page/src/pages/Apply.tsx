@@ -1,6 +1,6 @@
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, Trash, FileText, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, Trash, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,42 +9,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ResumeDropzone, type UploadState } from "@/components/application/ResumeDropzone";
 import { FormField } from "@/components/application/FormField";
 import { API_BASE } from "@/lib/constants";
-
-export const Route = createFileRoute("/apply/$jobId")({
-  loader: async ({ params }) => {
-    try {
-      const res = await fetch(`${API_BASE}/jobs/fetch`);
-      if (!res.ok) throw new Error("Failed to fetch jobs");
-      const jobsList = await res.json();
-      const job = jobsList.find((j: any) => j.id === params.jobId);
-      if (!job || job.status !== "Active") throw notFound();
-      return { job };
-    } catch (e: any) {
-      throw new Error("Failed to load job details from server");
-    }
-  },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [{ title: `Apply for ${loaderData.job.title} — Khalti Careers` }]
-      : [{ title: "Apply — Khalti Careers" }],
-  }),
-  notFoundComponent: () => (
-    <div className="mx-auto max-w-2xl px-4 py-24 text-center">
-      <h1 className="text-2xl font-bold">Role not found</h1>
-      <Button asChild className="mt-6 bg-khalti text-khalti-foreground hover:bg-khalti/90">
-        <Link to="/jobs">See open roles</Link>
-      </Button>
-    </div>
-  ),
-  errorComponent: ({ error, reset }) => (
-    <div className="mx-auto max-w-2xl px-4 py-24 text-center">
-      <h1 className="text-xl font-semibold">Something went wrong</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
-      <Button onClick={reset} className="mt-6">Try again</Button>
-    </div>
-  ),
-  component: ApplyPage,
-});
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -148,7 +112,7 @@ const emptySchema: CandidateSchema = {
     total_experience_years: 0,
     notice_period_days: 0,
     preferred_locations: [],
-    authorized_to_work_in_nepal: null as any,
+    authorized_to_work_in_nepal: true,
     expected_salary: ""
   },
   skills: [],
@@ -170,7 +134,6 @@ const emptySchema: CandidateSchema = {
   }
 };
 
-
 function SectionHeader({ step, title, desc }: { step: string; title: string; desc?: string }) {
   return (
     <div className="mb-6 border-b border-border/60 pb-4">
@@ -181,9 +144,23 @@ function SectionHeader({ step, title, desc }: { step: string; title: string; des
   );
 }
 
-function ApplyPage() {
-  const { job } = Route.useLoaderData();
+export default function ApplyPage() {
+  const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const [job, setJob] = useState<any>(null);
+  const [jobLoading, setJobLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/jobs/fetch`)
+      .then((res) => res.json())
+      .then((jobs) => {
+        const found = jobs.find((j: any) => j.id === jobId);
+        if (!found || found.status !== "Active") { navigate("/jobs", { replace: true }); return; }
+        setJob(found);
+      })
+      .catch(() => navigate("/jobs", { replace: true }))
+      .finally(() => setJobLoading(false));
+  }, [jobId, navigate]);
 
   const [file, setFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
@@ -333,8 +310,8 @@ function ApplyPage() {
       const parsedData = await res.json();
       setProgress(100);
 
-      const parsedSalary = parsedData.professional_summary?.expected_salary || 
-                           parsedData.salaryExpectation || 
+      const parsedSalary = parsedData.professional_summary?.expected_salary ||
+                           parsedData.salaryExpectation ||
                            parsedData.custom_fields?.salaryExpectation || "";
 
       setFormData({
@@ -362,14 +339,8 @@ function ApplyPage() {
         education: (parsedData.education || []).map((edu: any) => ({ ...edu, _key: generateId() })),
         projects: (parsedData.projects || []).map((proj: any) => ({ ...proj, _key: generateId() })),
         certifications: (parsedData.certifications || []).map((cert: any) => ({ ...cert, _key: generateId() })),
-        achievements: (parsedData.achievements || []).map((ach: any) => ({ 
-          _key: generateId(), 
-          value: typeof ach === 'string' ? ach : (ach.title || ach.name || ach.achievement || JSON.stringify(ach))
-        })),
-        awards: (parsedData.awards || []).map((aw: any) => ({ 
-          _key: generateId(), 
-          value: typeof aw === 'string' ? aw : (aw.title || aw.name || aw.award || JSON.stringify(aw))
-        })),
+        achievements: (parsedData.achievements || []).map((ach: string) => ({ _key: generateId(), value: ach })),
+        awards: (parsedData.awards || []).map((aw: string) => ({ _key: generateId(), value: aw })),
         custom_fields: {
           ...emptySchema.custom_fields,
           ...(parsedData.custom_fields || {}),
@@ -930,7 +901,7 @@ function ApplyPage() {
         extraInformation: formData.custom_fields.extraInformation || "",
         publications: formData.custom_fields.publications || "",
       };
-      
+
       customFieldsList.forEach(({ key, value }) => {
         if (key.trim()) {
           builtCustomFields[key.trim()] = value;
@@ -972,7 +943,7 @@ function ApplyPage() {
           throw new Error(errData.detail || "Failed to submit application");
         }
         setIsSubmitting(false);
-        navigate({ to: "/success" });
+        navigate("/success");
       } catch (err: any) {
         console.error(err);
         alert(err.message || "Failed to submit application");
@@ -984,12 +955,20 @@ function ApplyPage() {
     }
   };
 
+  if (jobLoading || !job) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+        <div className="text-muted-foreground">Loading role...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-secondary/30 min-h-screen pb-12">
       <section className="border-b border-border/60 bg-background">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
           <Button asChild variant="ghost" size="sm" className="-ml-3 mb-4 text-muted-foreground">
-            <Link to="/jobs/$jobId" params={{ jobId: job.id }}>
+            <Link to={`/jobs/${job.id}`}>
               <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to role
             </Link>
           </Button>
@@ -1043,10 +1022,10 @@ function ApplyPage() {
                 onRemove={handleRemove}
                 disabled={!recaptchaTokenState}
               />
-              
+
               {!file && uploadState === "idle" && (
                 <div className="flex flex-col items-center justify-center p-5 border border-dashed border-border/75 rounded-2xl bg-secondary/10 backdrop-blur-sm transition-all duration-300">
-                  
+
                   <div id="recaptcha-checkbox-container" className="min-h-[78px] flex items-center justify-center"></div>
                 </div>
               )}
@@ -1074,44 +1053,6 @@ function ApplyPage() {
           )}
 
           <form onSubmit={handleFormSubmit} className="mx-auto w-full space-y-6">
-            <Card className="rounded-2xl border-khalti/30 p-6 sm:p-8 bg-khalti/5">
-              <div className="space-y-4">
-                <Label className="text-base font-semibold">
-                  Are you legally authorized to work in Nepal? <span className="text-khalti">*</span>
-                </Label>
-                <RadioGroup
-                  value={formData.professional_summary.authorized_to_work_in_nepal === null ? "" : (formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no")}
-                  onValueChange={(v) => updateSummary("authorized_to_work_in_nepal", v === "yes")}
-                  className="flex flex-col sm:flex-row gap-3"
-                >
-                  {[
-                    { value: "yes", label: "Yes, I am authorized" },
-                    { value: "no", label: "No, I am not authorized" },
-                  ].map((o) => (
-                    <Label
-                      key={o.value}
-                      htmlFor={`auth-${o.value}`}
-                      className={`flex flex-1 cursor-pointer items-center gap-3 rounded-xl border px-5 py-4 text-sm font-medium transition-colors ${
-                        formData.professional_summary.authorized_to_work_in_nepal === (o.value === "yes")
-                          ? "border-khalti bg-white text-foreground shadow-sm ring-1 ring-khalti/50"
-                          : "border-border bg-white hover:border-khalti/40"
-                      }`}
-                    >
-                      <RadioGroupItem id={`auth-${o.value}`} value={o.value} />
-                      {o.label}
-                    </Label>
-                  ))}
-                </RadioGroup>
-                {formData.professional_summary.authorized_to_work_in_nepal === false && (
-                  <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm font-medium text-destructive">
-                    ⚠️ You must be legally authorized to work in Nepal to submit an application.
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {formData.professional_summary.authorized_to_work_in_nepal === true && (
-              <>
             {/* Personal Info Section */}
             <Card className="rounded-2xl border-border/70 p-6 sm:p-8">
               <SectionHeader step="Section 1" title="Personal Information" />
@@ -1281,6 +1222,38 @@ function ApplyPage() {
                   />
                 </div>
 
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="text-sm font-medium">
+                    Are you legally authorized to work in Nepal? <span className="text-khalti">*</span>
+                  </Label>
+                  <RadioGroup
+                    value={formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no"}
+                    onValueChange={(v) => updateSummary("authorized_to_work_in_nepal", v === "yes")}
+                    className="flex gap-3"
+                  >
+                    {[
+                      { value: "yes", label: "Yes" },
+                      { value: "no", label: "No" },
+                    ].map((o) => (
+                      <Label
+                        key={o.value}
+                        htmlFor={`auth-${o.value}`}
+                        className={`flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${(formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no") === o.value
+                          ? "border-khalti bg-khalti/5 text-foreground"
+                          : "border-border bg-white hover:border-khalti/40"
+                          }`}
+                      >
+                        <RadioGroupItem id={`auth-${o.value}`} value={o.value} />
+                        {o.label}
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                  {!formData.professional_summary.authorized_to_work_in_nepal && (
+                    <p className="text-xs text-destructive mt-1.5 font-medium">
+                      ⚠️ You must be legally authorized to work in Nepal to submit your application.
+                    </p>
+                  )}
+                </div>
               </div>
             </Card>
 
@@ -1804,7 +1777,7 @@ function ApplyPage() {
                         >
                           <X className="h-4 w-4" />
                         </button>
-                        
+
                         <div className="space-y-4 w-full pt-2">
                           <FormField
                             id={`custom_fields_key_${idx}`}
@@ -1846,8 +1819,6 @@ function ApplyPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
-              </>
-            )}
           </form>
         </div>
       </section>

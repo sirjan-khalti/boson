@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Github, Linkedin, Twitter, Mail } from "lucide-react";
 import { KhaltiLogo } from "./KhaltiLogo";
 import { Button } from "@/components/ui/button";

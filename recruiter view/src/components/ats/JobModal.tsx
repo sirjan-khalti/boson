@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MapPin, Briefcase, Users, Calendar, ChevronRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useAts } from "@/lib/store";
 

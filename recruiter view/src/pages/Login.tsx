@@ -1,17 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { setToken } from "@/lib/auth";
 import { API_BASE } from "@/lib/config";
 
-export const Route = createFileRoute("/login")({
-  component: LoginPage,
-  head: () => ({ meta: [{ title: "Sign in — Khalti Recruiter" }] }),
-});
-
-function LoginPage() {
-  const navigate = useNavigate();
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +42,7 @@ function LoginPage() {
             <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
             <p className="mt-1 text-sm text-muted-foreground">Sign in to your recruiter workspace.</p>
 
-              <form
+            <form
               className="mt-6 space-y-4"
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -57,21 +50,20 @@ function LoginPage() {
                   const formData = new URLSearchParams();
                   formData.append("username", email);
                   formData.append("password", password);
-                  
-                  const apiBase = API_BASE;
-                  const res = await fetch(`${apiBase}/auth/login`, {
+
+                  const res = await fetch(`${API_BASE}/auth/login`, {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
                     body: formData,
                     credentials: "include",
                   });
-                  
+
                   if (!res.ok) {
                     const data = await res.json();
                     alert(data.detail || "Login failed");
                     return;
                   }
-                  
+
                   const data = await res.json();
                   setToken(data.access_token);
                   window.location.href = "/";
@@ -89,9 +81,7 @@ function LoginPage() {
                 </div>
               </div>
               <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-muted-foreground">Password</label>
-                </div>
+                <label className="text-xs font-medium text-muted-foreground">Password</label>
                 <div className="relative mt-1">
                   <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}

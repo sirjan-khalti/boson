@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Search, Filter, Briefcase, Lock, Unlock } from "lucide-react";
@@ -6,11 +6,9 @@ import { cn } from "@/lib/utils";
 import { useAts } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/_app/jobs/")({ component: JobsPage });
-
 const tabs = ["Active", "Closed"] as const;
 
-function JobsPage() {
+export default function JobsPage() {
   const jobs = useAts((s) => s.jobs);
   const activeJobs = useAts((s) => s.activeJobs);
   const closedJobs = useAts((s) => s.closedJobs);
@@ -54,14 +52,14 @@ function JobsPage() {
   const isArchived = (j: typeof jobs[number]) => {
     if (j.status === "Active") return false;
     if (!j.status.startsWith("Closed")) return false;
-    
+
     let dateStr = "";
     if (j.status.includes(":")) {
       dateStr = j.status.split(":")[1];
     } else {
       dateStr = j.postedDate;
     }
-    
+
     const closedDate = new Date(dateStr);
     const diffTime = new Date().getTime() - closedDate.getTime();
     const diffDays = diffTime / (1000 * 60 * 60 * 24);
@@ -93,7 +91,7 @@ function JobsPage() {
   const filtered = jobs.filter((j) => {
     const matchTab = (tab === "Active" && j.status === "Active") || (tab === "Closed" && j.status.startsWith("Closed"));
     if (!matchTab) return false;
-    
+
     if (tab === "Closed") {
       if (showOnlyArchived) {
         if (!isArchived(j)) return false;
@@ -112,13 +110,13 @@ function JobsPage() {
     return [...filtered].sort((a, b) => {
       let valA = a[sortField as keyof typeof a];
       let valB = b[sortField as keyof typeof b];
-      
+
       if (typeof valA === "string" && typeof valB === "string") {
         return sortOrder === "asc"
           ? valA.localeCompare(valB)
           : valB.localeCompare(valA);
       }
-      
+
       if (valA < valB) return sortOrder === "asc" ? -1 : 1;
       if (valA > valB) return sortOrder === "asc" ? 1 : -1;
       return 0;
@@ -299,7 +297,7 @@ function JobsPage() {
                 <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-1.5">
                     <Link
-                      to="/candidates" search={{ jobId: j.id }}
+                      to={`/candidates?jobId=${j.id}`}
                       className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"
                     >
                       View candidates

@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Briefcase, Users, KanbanSquare, BarChart3, Shield,
@@ -31,7 +31,7 @@ function KhaltiLogo() {
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading, isAuthenticated, isAdmin, logout, refresh } = useAuth();
+  const { user, loading, isAuthenticated, isAdmin, logout } = useAuth();
   const openCreateJob = useAts((s) => s.openCreateJob);
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -40,28 +40,13 @@ export function AppShell() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   useEffect(() => {
-    if (mounted && !loading && !isAuthenticated) navigate({ to: "/login" });
+    if (mounted && !loading && !isAuthenticated) navigate("/login");
   }, [mounted, loading, isAuthenticated, navigate]);
-
-  // Refresh user session on every route navigation
-  useEffect(() => {
-    if (mounted && isAuthenticated) {
-      refresh();
-    }
-  }, [location.pathname]);
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? location.pathname === to : location.pathname.startsWith(to);
 
   const showUploadCv = user?.role !== "VIEWER";
-
-  if (!mounted || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
 
   const section1: NavItem[] = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -183,7 +168,7 @@ export function AppShell() {
               <KeyRound className="h-4 w-4" />
             </button>
             <button
-              onClick={() => { logout(); navigate({ to: "/login" }); }}
+              onClick={() => { logout(); navigate("/login"); }}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
               title="Sign out"
             >
@@ -196,18 +181,7 @@ export function AppShell() {
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15, ease: "easeInOut" }}
-              className="w-full h-full"
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          <Outlet />
         </main>
       </div>
 

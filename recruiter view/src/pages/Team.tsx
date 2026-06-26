@@ -1,11 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ShieldAlert, Shield, Plus, X, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ats/Avatar";
 import { useAuth, type Role, type AuthUser, getToken } from "@/lib/auth";
 import { API_BASE } from "@/lib/config";
-
-export const Route = createFileRoute("/_app/team")({ component: TeamPage });
 
 const roleBadge: Record<Role, string> = {
   SUPERADMIN: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-300",
@@ -14,7 +12,7 @@ const roleBadge: Record<Role, string> = {
   VIEWER: "bg-muted text-muted-foreground",
 };
 
-function TeamPage() {
+export default function TeamPage() {
   const { user, isAdmin } = useAuth();
   const [team, setTeam] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,44 +37,31 @@ function TeamPage() {
     memberEmail: string;
   } | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchTeam = async () => {
-      try {
-        const apiBase = API_BASE;
-        const headers: Record<string, string> = {};
-        const token = getToken();
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        const res = await fetch(`${apiBase}/team/fetch`, {
-          headers,
-          credentials: "include",
-          signal: controller.signal
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTeam(data);
-        }
-      } catch (e: any) {
-        if (e.name !== "AbortError") {
-          console.error(e);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+  const fetchTeam = async () => {
+    try {
+      const apiBase = API_BASE;
+      const headers: Record<string, string> = {};
+      const token = getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
-    };
-
-    if (isAdmin) {
-      fetchTeam();
+      const res = await fetch(`${apiBase}/team/fetch`, {
+        headers,
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTeam(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return () => {
-      controller.abort();
-    };
+  useEffect(() => {
+    if (isAdmin) fetchTeam();
   }, [isAdmin]);
 
   if (!user) {
@@ -106,7 +91,7 @@ function TeamPage() {
   const updateRole = async (id: string, role: Role) => {
     try {
       const apiBase = API_BASE;
-      const headers: Record<string, string> = { 
+      const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
       const token = getToken();
@@ -274,7 +259,6 @@ function TeamPage() {
                         memberEmail: m.email,
                       });
                     }}
-
                     className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Reset Password
@@ -325,7 +309,7 @@ function TeamPage() {
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-200">
             <h3 className="text-base font-semibold text-foreground">Confirm Password Reset</h3>
             <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed">
-              Are you sure you want to reset the password for <span className="font-semibold text-foreground">{resetConfirmData.memberName}</span>? 
+              Are you sure you want to reset the password for <span className="font-semibold text-foreground">{resetConfirmData.memberName}</span>?
               The password will be reset to match their email address: <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-primary font-medium">{resetConfirmData.memberEmail}</span>.
             </p>
             <div className="mt-6 flex justify-end gap-3">
@@ -365,7 +349,7 @@ function TeamPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            
+
             {createError && (
               <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive mb-4">
                 {createError}
