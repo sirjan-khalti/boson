@@ -27,7 +27,7 @@ from app.api.dependencies import RequireRole, get_current_user
 from app.core.logger import logger
 from app.services.recaptcha import verify_recaptcha
 from app.core.limiter import limiter
-from app.services import candidate
+from app.services import candidate as candidate_service
 
 router = APIRouter(tags=["candidates"])
 
@@ -54,7 +54,7 @@ async def parse_cv(
             "reCAPTCHA API Key is not set. Bypassing verification for local development."
         )
 
-    return await candidate.parse_resume(file)
+    return await candidate_service.parse_resume(file)
 
 
 @router.post("/submit", response_model=CandidateResponse, status_code=status.HTTP_201_CREATED)
@@ -66,7 +66,7 @@ async def submit_application(
     file: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
-    return await candidate.submit_application(db, candidate, file, background_tasks)
+    return await candidate_service.submit_application(db, candidate, file, background_tasks)
 
 
 @router.get("/fetch", response_model=PaginatedCandidatesResponse, dependencies=[Depends(get_current_user)])
@@ -83,7 +83,7 @@ def get_candidates(
     sort_order: str = Query("desc"),
     db: Session = Depends(get_db),
 ):
-    return candidate.get_paginated(
+    return candidate_service.get_paginated(
         db, page, size, jobId, search, minScore, minExp, stage, tiers, sort_by, sort_order
     )
 
@@ -94,7 +94,7 @@ def get_recruitment_report(
     end: str = Query(...),
     db: Session = Depends(get_db),
 ):
-    return candidate.get_recruitment_report(db, start, end)
+    return candidate_service.get_recruitment_report(db, start, end)
 
 
 @router.get("/{candidate_id}", response_model=CandidateResponse, dependencies=[Depends(get_current_user)])
@@ -102,7 +102,7 @@ def get_candidate_by_id(
     candidate_id: str,
     db: Session = Depends(get_db),
 ):
-    return candidate.get_by_id(db, candidate_id)
+    return candidate_service.get_by_id(db, candidate_id)
 
 
 @router.post("/{candidate_id}/stage", response_model=CandidateResponse)
@@ -112,7 +112,7 @@ def update_candidate_stage(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN", "RECRUITER"])),
 ):
-    return candidate.update_stage(db, candidate_id, stage_update.stage, current_user)
+    return candidate_service.update_stage(db, candidate_id, stage_update.stage, current_user)
 
 
 @router.post("/{candidate_id}/notes", response_model=CandidateResponse)
@@ -122,4 +122,4 @@ def add_candidate_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN", "RECRUITER"])),
 ):
-    return candidate.add_note(db, candidate_id, note.content, current_user)
+    return candidate_service.add_note(db, candidate_id, note.content, current_user)

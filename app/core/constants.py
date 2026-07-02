@@ -1,3 +1,126 @@
+from app.schemas.user import Role
+
+# =========================================================
+# ROLES
+# =========================================================
+# Role groups used to gate API endpoints (Depends(RequireRole(...)))
+ROLES_SUPERADMIN_ONLY = [Role.SUPERADMIN]
+ROLES_ADMIN_AND_UP = [Role.SUPERADMIN, Role.ADMIN]
+ROLES_RECRUITER_AND_UP = [Role.SUPERADMIN, Role.ADMIN, Role.RECRUITER]
+
+# Roles that can be assigned to a team member (SUPERADMIN is not assignable)
+ASSIGNABLE_ROLES = [Role.ADMIN, Role.RECRUITER, Role.VIEWER]
+
+# =========================================================
+# RATE LIMITS
+# =========================================================
+RATE_LIMIT_PARSE_RESUME = "10/minute"
+RATE_LIMIT_SUBMIT_APPLICATION = "5/minute"
+
+# =========================================================
+# CV STORAGE
+# =========================================================
+CV_UPLOAD_DIR = "static/cvs"
+CV_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+# =========================================================
+# GROQ / LLM
+# =========================================================
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_CLIENT_TIMEOUT_SECONDS = 30.0
+GROQ_CLIENT_MAX_RETRIES = 0
+
+# =========================================================
+# CANDIDATE EVALUATION
+# =========================================================
+MATCH_SCORE_STRONG_FIT_THRESHOLD = 80
+MATCH_SCORE_MODERATE_FIT_THRESHOLD = 50
+
+CANDIDATE_ALLOWED_SORT_FIELDS = {"name", "match", "experience", "stage", "appliedDate", "title", "location"}
+
+# =========================================================
+# CANDIDATE SUBMISSION DEFAULTS
+# =========================================================
+DEFAULT_SALARY_EXPECTATION = "Negotiable"
+CANDIDATE_SOURCE_CAREERS_PAGE = "Careers Page"
+
+# =========================================================
+# JOBS
+# =========================================================
+JOB_ARCHIVE_AFTER_DAYS = 30
+
+# =========================================================
+# AUTH
+# =========================================================
+DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 15
+
+# =========================================================
+# CV PARSER SCHEMA
+# =========================================================
+CANDIDATE_SCHEMA = {
+    "personal_info": {
+        "full_name": "",
+        "first_name": "",
+        "last_name": "",
+        "email": "",
+        "phone": "",
+        "address": {"city": "", "state": "", "country": ""},
+        "profiles": {"linkedin": "", "github": "", "portfolio": ""},
+    },
+    "professional_summary": {
+        "summary": "",
+        "total_experience_years": 0,
+        "notice_period_days": 0,
+        "preferred_locations": [],
+        "authorized_to_work_in_nepal": False,
+        "expected_salary": "",
+    },
+    "skills": ["", "", ""],
+    "experience": [
+        {
+            "company_name": "",
+            "job_title": "",
+            "employment_type": "",
+            "location": "",
+            "start_date": "",
+            "end_date": "",
+            "currently_working": False,
+            "work_summary": "",
+            "technologies_used": [],
+        }
+    ],
+    "education": [
+        {
+            "degree": "",
+            "field_of_study": "",
+            "institution_name": "",
+            "location": "",
+            "start_date": "",
+            "end_date": "",
+            "grade": "",
+        }
+    ],
+    "projects": [
+        {
+            "project_name": "",
+            "description": "",
+            "technologies_used": [],
+            "github_url": "",
+            "live_url": "",
+        }
+    ],
+    "certifications": [{"name": "", "issuer": "", "issue_date": ""}],
+    "languages": [{"language": "", "proficiency": ""}],
+    "achievements": [],
+    "awards": [],
+    "candidate_preferences": {
+        "preferred_roles": [],
+        "preferred_locations": [],
+        "preferred_employment_type": [],
+    },
+    "custom_fields": {},
+}
+
 EVALUATION_SCHEMA = {
     "summary": "",
     "match_score": 0,

@@ -3,7 +3,7 @@ import {
   X, Mail, Phone, Building2, MapPin, GraduationCap, Calendar,
   FileText, FileSpreadsheet, Sparkles, Star, Check, CalendarPlus, X as XIcon,
   Linkedin, Github, Globe, Award, Trophy, Languages, Briefcase,
-  DollarSign, Clock, ShieldCheck, Share2, AlertTriangle, Send,
+  DollarSign, Clock, Share2, AlertTriangle, Send,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -74,8 +74,8 @@ function buildCsv(c: Candidate, jobTitle?: string) {
     ["Skills", (c.skills || []).join("; ")], ["Missing Skills", (c.missingSkills || []).join("; ")],
     ["Languages", (c.languages || []).map((l) => `${l.name} (${l.level})`).join("; ")],
     ["Certifications", (c.certifications || []).join("; ")],
-    ["Salary expectation", c.salaryExpectation], ["Availability", c.availability],
-    ["Notice period", c.noticePeriod], ["Work authorization", c.workAuthorization],
+    ["Salary expectation", c.salaryExpectation],
+    ["Notice period", c.noticePeriod],
     ["Source", c.source], ["LinkedIn", c.links?.linkedin ?? ""],
     ["GitHub", c.links?.github ?? ""],
     ["Portfolio", c.links?.portfolio ?? ""],
@@ -388,11 +388,10 @@ export function CandidateModal() {
                     </dl>
                   </Section>
 
-                  <Section title="Compensation & availability">
+                  <Section title="Compensation">
                     <dl className="space-y-2 text-sm">
                       <Row icon={DollarSign} label={`Expected: ${c.salaryExpectation}`} />
-                      <Row icon={Clock} label={`Availability: ${c.availability} · Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.noticePeriod}`} />
-                      <Row icon={ShieldCheck} label={candidateJson ? (candidateJson.professional_summary.authorized_to_work_in_nepal ? "Legally allowed to work in Nepal" : "Requires work permit / sponsorship") : c.workAuthorization} />
+                      <Row icon={Clock} label={`Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.noticePeriod}`} />
                     </dl>
                   </Section>
 

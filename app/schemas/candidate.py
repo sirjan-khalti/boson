@@ -18,6 +18,12 @@ class EvaluationStatus(str, Enum):
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
 
+class Tier(str, Enum):
+    PENDING = "Pending"
+    STRONG_FIT = "Strong Fit"
+    MODERATE_FIT = "Moderate Fit"
+    WEAK_FIT = "Weak Fit"
+
 class DateRangeFilter(str, Enum):
     TODAY = "today"
     WEEK = "week"
@@ -124,7 +130,7 @@ class CandidateResponse(BaseModel):
     pastStages: List[str] = []
     appliedDate: datetime
     match: int
-    tier: Optional[str] = None
+    tier: Optional[Tier] = None
     evaluation_status: EvaluationStatus
     summary: Optional[str] = None
     notes: List[Dict[str, Any]] = []
@@ -149,6 +155,7 @@ class CandidateResponse(BaseModel):
     personal_info: PersonalInfoSchema = PersonalInfoSchema()
     professional_summary: ProfessionalSummarySchema = ProfessionalSummarySchema()
     skills: List[str] = []
+    missingSkills: List[str] = []
     projects: List[ProjectItemSchema] = []
     achievements: List[str] = []
     awards: List[str] = []
@@ -170,8 +177,6 @@ class CandidateResponse(BaseModel):
     languages: List[Dict[str, Any]] = []
     
     salaryExpectation: Optional[str] = None
-    availability: Optional[str] = None
-    workAuthorization: Optional[str] = None
     noticePeriod: Optional[str] = None
     source: Optional[str] = None
 

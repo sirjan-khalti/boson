@@ -9,13 +9,19 @@ from sqlalchemy import String
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.constants import (
+    CANDIDATE_SOURCE_CAREERS_PAGE,
+    DEFAULT_SALARY_EXPECTATION,
+    MATCH_SCORE_MODERATE_FIT_THRESHOLD,
+    MATCH_SCORE_STRONG_FIT_THRESHOLD,
+)
 from app.core.database import SessionLocal
 from app.core.exceptions import ServiceError
 from app.core.logger import logger
 from app.models.candidate import Candidate
 from app.models.job import Job
 from app.schemas.activity_log import ActionType
-from app.schemas.candidate import CandidateCreate, EvaluationStatus
+from app.schemas.candidate import CandidateCreate, EvaluationStatus, Tier
 from app.services.activity_log import log_activity
 from app.services.cv_store import save_cv
 from app.services.evaluator import evaluate_candidate
@@ -75,11 +81,11 @@ async def run_background_evaluation(candidate_id: str, job_id: str, candidate_da
         )
 
         match_score = eval_result.get("match_score", 0)
-        tier = "Weak Fit"
-        if match_score >= 80:
-            tier = "Strong Fit"
-        elif match_score >= 50:
-            tier = "Moderate Fit"
+        tier = Tier.WEAK_FIT
+        if match_score >= MATCH_SCORE_STRONG_FIT_THRESHOLD:
+            tier = Tier.STRONG_FIT
+        elif match_score >= MATCH_SCORE_MODERATE_FIT_THRESHOLD:
+            tier = Tier.MODERATE_FIT
 
         candidate.match = match_score
         candidate.tier = tier
@@ -212,13 +218,7 @@ async def submit_application(
     meta_salary = (
         prof_summary.get("expected_salary")
         or cand_data.get("custom_fields", {}).get("salaryExpectation")
-        or "Negotiable"
-    )
-    meta_avail = cand_data.get("custom_fields", {}).get("availability") or "Immediate"
-    meta_auth = (
-        "Authorized"
-        if prof_summary.get("authorized_to_work_in_nepal")
-        else "Requires Sponsorship"
+        or DEFAULT_SALARY_EXPECTATION
     )
     meta_notice = f"{prof_summary.get('notice_period_days', 0)} days"
 
@@ -240,10 +240,8 @@ async def submit_application(
         links=legacy_links,
         workHistory=legacy_work,
         salaryExpectation=meta_salary,
-        availability=meta_avail,
-        workAuthorization=meta_auth,
         noticePeriod=meta_notice,
-        source="Careers Page",
+        source=CANDIDATE_SOURCE_CAREERS_PAGE,
         personal_info=personal,
         professional_summary=prof_summary,
         experience_history=exp_list,
@@ -256,7 +254,7 @@ async def submit_application(
         candidate_preferences=cand_data.get("candidate_preferences", {}),
         custom_fields=cand_data.get("custom_fields", {}),
         match=0,
-        tier="Pending",
+        tier=Tier.PENDING,
         evaluation_status=EvaluationStatus.PENDING,
         summary="Evaluating candidate profile...",
         scores=[],

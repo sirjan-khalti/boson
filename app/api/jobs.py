@@ -43,11 +43,11 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
 
 @router.post("/create", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
 def create_job(
-    job: JobCreate,
+    job_data: JobCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN"])),
 ):
-    return job.create_job_with_log(db, job, current_user)
+    return job.create_job_with_log(db, job_data, current_user)
 
 
 @router.post("/{job_id}/status", response_model=JobResponse)

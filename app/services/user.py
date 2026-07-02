@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 
+from app.core.constants import ASSIGNABLE_ROLES
 from app.core.exceptions import ServiceError
 from app.core.security import get_password_hash
 from app.models.user import User
 from app.schemas.activity_log import ActionType
+from app.schemas.user import Role
 from app.services.activity_log import log_activity
-
-VALID_ROLES = ["ADMIN", "RECRUITER", "VIEWER"]
 
 
 def list_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
@@ -18,21 +18,21 @@ def get_by_email(db: Session, email: str) -> User | None:
 
 
 def update_role(db: Session, user_id: str, new_role: str, current_user: User) -> User:
-    if new_role not in VALID_ROLES:
+    if new_role not in ASSIGNABLE_ROLES:
         raise ServiceError(400, "Invalid role specified")
 
     target_user = db.query(User).filter(User.id == user_id).first()
     if not target_user:
         raise ServiceError(404, "User not found")
 
-    if target_user.role == "SUPERADMIN":
+    if target_user.role == Role.SUPERADMIN:
         raise ServiceError(403, "Cannot alter the SUPERADMIN role")
 
     # Enforce role hierarchy safety to prevent privilege escalation
-    if current_user.role != "SUPERADMIN":
+    if current_user.role != Role.SUPERADMIN:
         if current_user.id == target_user.id:
             raise ServiceError(403, "Cannot alter your own role")
-        if target_user.role == "ADMIN" and new_role != "ADMIN":
+        if target_user.role == Role.ADMIN and new_role != Role.ADMIN:
             raise ServiceError(403, "Admins cannot demote other ADMINs")
 
     old_role = target_user.role

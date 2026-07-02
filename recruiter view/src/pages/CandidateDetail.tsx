@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import {
   ArrowLeft, MapPin, GraduationCap, Building2, Mail, Calendar, Star,
   Check, X as XIcon, CalendarPlus, ChevronRight, FileText, Sparkles, FileSpreadsheet,
-  Linkedin, Github, Globe, Clock, ShieldCheck, DollarSign, AlertTriangle,
+  Linkedin, Github, Globe, Clock, DollarSign, AlertTriangle,
 } from "lucide-react";
 import { type Candidate } from "@/lib/data";
 import { useAts } from "@/lib/store";
@@ -150,7 +150,7 @@ function buildCandidateJson(c: Candidate) {
       total_experience_years: c.experience,
       notice_period_days: parseInt(c.noticePeriod?.replace(/\D/g, "") || "", 10) || 30,
       preferred_locations: ["Kathmandu", "Remote"],
-      authorized_to_work_in_nepal: !c.workAuthorization?.toLowerCase().includes("requires sponsorship")
+      authorized_to_work_in_nepal: true
     },
     skills: c.skills || [],
     experience: (c.workHistory || []).map((w) => ({
@@ -401,11 +401,10 @@ export default function CandidateDetail() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Compensation & availability</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Compensation</h3>
             <dl className="space-y-2 text-sm">
               <Row icon={DollarSign} label={`Expected: ${candidateJson?.professional_summary.expected_salary || c.salaryExpectation}`} />
-              <Row icon={Clock} label={`Availability: ${c.availability} · Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.noticePeriod}`} />
-              <Row icon={ShieldCheck} label={candidateJson ? (candidateJson.professional_summary.authorized_to_work_in_nepal ? "Legally allowed to work in Nepal" : "Requires work permit / sponsorship") : c.workAuthorization} />
+              <Row icon={Clock} label={`Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.noticePeriod}`} />
             </dl>
           </div>
 

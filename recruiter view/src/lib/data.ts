@@ -146,8 +146,6 @@ export type Candidate = {
   links: { linkedin?: string; github?: string; portfolio?: string };
   workHistory: WorkExperience[];
   salaryExpectation: string;
-  availability: string;
-  workAuthorization: string;
   noticePeriod: string;
   source: string;
   stage: CandidateStage;

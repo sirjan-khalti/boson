@@ -90,15 +90,14 @@ export default function ActivityLogsPage() {
   const fetchLogs = async (p: number, s: number, type: string, query: string) => {
     setLoading(true);
     try {
-      const apiBase = API_BASE;
-      const url = new URL(`${apiBase}/activity-logs/fetch`);
-      url.searchParams.append("page", p.toString());
-      url.searchParams.append("size", s.toString());
+      const searchParams = new URLSearchParams();
+      searchParams.append("page", p.toString());
+      searchParams.append("size", s.toString());
       if (type && type !== "all") {
-        url.searchParams.append("action_type", type);
+        searchParams.append("action_type", type);
       }
       if (query.trim()) {
-        url.searchParams.append("search", query.trim());
+        searchParams.append("search", query.trim());
       }
 
       const headers: Record<string, string> = {};
@@ -107,7 +106,7 @@ export default function ActivityLogsPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const res = await fetch(url.toString(), {
+      const res = await fetch(`${API_BASE}/activity-logs/fetch?${searchParams.toString()}`, {
         headers,
         credentials: "include"
       });

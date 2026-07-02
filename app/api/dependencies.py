@@ -30,10 +30,10 @@ def get_current_user(
     except JWTError:
         raise UnauthorizedError()
 
-    user = user.get_by_email(db, email)
-    if user is None:
+    current_user = user.get_by_email(db, email)
+    if current_user is None:
         raise UnauthorizedError()
-    return user
+    return current_user
 
 class RequireRole:
     def __init__(self, allowed_roles: list[str]):

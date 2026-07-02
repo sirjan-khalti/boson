@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.core.database import BaseModelDB
-from app.schemas.candidate import EvaluationStatus
+from app.schemas.candidate import EvaluationStatus, Tier
 
 class Candidate(BaseModelDB):
     __tablename__ = "candidates"
@@ -33,8 +33,6 @@ class Candidate(BaseModelDB):
     
     # Legacy form metadata
     salaryExpectation = Column(String, nullable=True)
-    availability = Column(String, nullable=True)
-    workAuthorization = Column(String, nullable=True)
     noticePeriod = Column(String, nullable=True)
     source = Column(String, nullable=True)
     
@@ -43,7 +41,11 @@ class Candidate(BaseModelDB):
     pastStages = Column(JSONB, default=list)
     appliedDate = Column(DateTime, default=datetime.now)
     match = Column(Integer, default=0)
-    tier = Column(String, nullable=True, index=True)
+    tier = Column(
+        SAEnum(Tier, name="candidate_tier_enum", values_callable=lambda enum: [e.value for e in enum]),
+        nullable=True,
+        index=True,
+    )
     evaluation_status = Column(
         SAEnum(EvaluationStatus, name="evaluation_status_enum", values_callable=lambda enum: [e.value for e in enum]),
         nullable=False,

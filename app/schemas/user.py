@@ -1,4 +1,11 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
+from enum import Enum
+
+class Role(str, Enum):
+    SUPERADMIN = "SUPERADMIN"
+    ADMIN = "ADMIN"
+    RECRUITER = "RECRUITER"
+    VIEWER = "VIEWER"
 
 class UserCreate(BaseModel):
     name: str
