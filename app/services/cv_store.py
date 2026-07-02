@@ -1,9 +1,8 @@
 import os
-import uuid
 import shutil
-from fastapi import UploadFile
+from fastapi import UploadFile, HTTPException
 
-from fastapi import HTTPException
+from app.core.utils import generate_uuid
 
 UPLOAD_DIR = "static/cvs"
 MAX_SIZE = 10 * 1024 * 1024  # 10MB
@@ -28,7 +27,7 @@ def save_cv(file: UploadFile) -> str:
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     
     # Generate unique, safe filename using UUID and force .pdf extension
-    unique_filename = f"cv_{uuid.uuid4()}.pdf"
+    unique_filename = f"cv_{generate_uuid()}.pdf"
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
     
     # Save the file

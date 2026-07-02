@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -8,11 +8,11 @@ from app.core.security import verify_password, get_password_hash, create_access_
 from app.core.config import settings
 from app.models.user import User
 from app.schemas.user import UserResponse, Token, ChangePasswordInput
+from app.schemas.activity_log import ActionType
+from app.services.activity_logger import log_activity
 from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-from fastapi import APIRouter, Depends, HTTPException, status, Response
 
 @router.post("/login", response_model=Token)
 def login(
@@ -72,11 +72,10 @@ def change_password(
         )
         
     current_user.hashed_password = get_password_hash(data.new_password)
-    
-    from app.services.activity_logger import log_activity
+
     log_activity(
         db=db,
-        action_type="password_changed",
+        action_type=ActionType.PASSWORD_CHANGED,
         description=f"{current_user.name} ({current_user.role}) changed their password",
         user_name=current_user.name,
         user_email=current_user.email

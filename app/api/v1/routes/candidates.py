@@ -24,6 +24,7 @@ from app.models.candidate import Candidate
 from app.models.job import Job
 from app.models.user import User
 from app.services.activity_logger import log_activity
+from app.schemas.activity_log import ActionType
 from app.schemas.candidate import (
     CandidateCreate,
     CandidateResponse,
@@ -128,7 +129,7 @@ async def evaluate_candidate_background(
 
         log_activity(
             db=db,
-            action_type="candidate_evaluated",
+            action_type=ActionType.CANDIDATE_EVALUATED,
             description=f"System evaluated candidate {candidate.name} (Match: {match_score}%)",
             user_name="System (Evaluator)",
             user_email=candidate.email,
@@ -308,7 +309,7 @@ async def submit_application(
 
     log_activity(
         db=db,
-        action_type="candidate_applied",
+        action_type=ActionType.CANDIDATE_APPLIED,
         description=f"Candidate {db_candidate.name} applied for job '{job.title}'",
         user_name="System (Applicant)",
         user_email=db_candidate.email,
@@ -410,7 +411,7 @@ def get_recruitment_report(
     try:
         start_dt = datetime.combine(datetime.strptime(start, "%Y-%m-%d"), time.min).replace(tzinfo=timezone.utc)
         end_dt = datetime.combine(datetime.strptime(end, "%Y-%m-%d"), time.max).replace(tzinfo=timezone.utc)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid date format. Expected YYYY-MM-DD.")
 
     # 1. Filter jobs posted within the date range
@@ -530,7 +531,7 @@ def update_candidate_stage(
     # Use the centralized activity logger
     log_activity(
         db=db,
-        action_type="candidate_stage_updated",
+        action_type=ActionType.CANDIDATE_STAGE_UPDATED,
         description=f"Moved candidate {candidate.name} from {old_stage} to {candidate.stage}",
         user_name=current_user.name,
         user_email=current_user.email,
@@ -574,7 +575,7 @@ def add_candidate_note(
 
     log_activity(
         db=db,
-        action_type="candidate_note_added",
+        action_type=ActionType.CANDIDATE_NOTE_ADDED,
         description=f"Added note to candidate {candidate.name}",
         user_name=current_user.name,
         user_email=current_user.email,

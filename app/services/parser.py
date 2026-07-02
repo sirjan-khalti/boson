@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import re
@@ -5,10 +6,10 @@ import fitz
 import requests
 from groq import AsyncGroq
 from tempfile import NamedTemporaryFile
-from app.core.logger import logger
-
-
+from fastapi.concurrency import run_in_threadpool
 from app.core.config import settings
+from app.core.logger import logger
+from app.services.llm_utils import clean_llm_response
 
 # =========================================================
 # CONFIG
@@ -122,10 +123,6 @@ def download_pdf(url: str) -> str:
     temp_file.close()
 
     return temp_file.name
-
-
-from app.services.llm_utils import clean_llm_response
-from fastapi.concurrency import run_in_threadpool
 
 
 # =========================================================
@@ -275,8 +272,6 @@ CV CONTENT:
 # EXAMPLE USAGE
 # =========================================================
 if __name__ == "__main__":
-    import asyncio
-
     # LOCAL FILE
     result = asyncio.run(parse_candidate_cv("cv.pdf"))
 

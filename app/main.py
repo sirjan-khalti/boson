@@ -1,20 +1,15 @@
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
-from app.core.database import engine, Base
-from app.models.job import Job
-from app.models.candidate import Candidate
-from app.models.user import User
-from app.models.activity_log import ActivityLog
+from app.core.database import engine
 from app.api.v1.routes import api_router
 from app.core.limiter import limiter
-
-from fastapi.staticfiles import StaticFiles
-import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -1,22 +1,17 @@
-from traceback import print_tb
+import asyncio
 import json
 import re
+from traceback import print_tb
 from groq import AsyncGroq
 from app.core.config import settings
+from app.core.constants import DEFAULT_SCORING_CRITERIA, EVALUATION_SCHEMA, EVALUATOR_PROMPT_TEMPLATE
 from app.core.logger import logger
+from app.services.llm_utils import clean_llm_response
 
 # =========================================================
 # CONFIG
 # =========================================================
 MODEL = "llama-3.3-70b-versatile"
-
-
-from app.core.constants import DEFAULT_SCORING_CRITERIA, EVALUATION_SCHEMA, EVALUATOR_PROMPT_TEMPLATE
-
-# =========================================================
-# HELPERS
-# =========================================================
-from app.services.llm_utils import clean_llm_response
 
 
 # =========================================================
@@ -197,8 +192,6 @@ A collaborative team that values rigorous thinking and open knowledge sharing.
 Clear growth path toward Senior Analyst or specialized data roles.
 Competitive compensation and benefits package.    
     """
-
-    import asyncio
 
     result = asyncio.run(
         evaluate_candidate(candidate_data=candidate, job_description=jd)

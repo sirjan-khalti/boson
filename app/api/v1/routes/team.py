@@ -6,9 +6,10 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse
-from app.api.deps import get_current_user, RequireRole
+from app.api.deps import RequireRole
 from app.core.security import get_password_hash
 from app.services.activity_logger import log_activity
+from app.schemas.activity_log import ActionType
 
 router = APIRouter(prefix="/team", tags=["team"])
 
@@ -58,7 +59,7 @@ def update_role(
     
     log_activity(
         db=db,
-        action_type="member_role_updated",
+        action_type=ActionType.MEMBER_ROLE_UPDATED,
         description=f"{current_user.name} ({current_user.role}) updated team member {target_user.name}'s role from {old_role} to {role_update.role}",
         user_name=current_user.name,
         user_email=current_user.email
@@ -99,7 +100,7 @@ def create_member(
     
     log_activity(
         db=db,
-        action_type="member_created",
+        action_type=ActionType.MEMBER_CREATED,
         description=f"{current_user.name} ({current_user.role}) created a new team member: {new_user.name} ({new_user.role})",
         user_name=current_user.name,
         user_email=current_user.email
@@ -126,7 +127,7 @@ def reset_member_password(
     
     log_activity(
         db=db,
-        action_type="member_password_reset",
+        action_type=ActionType.MEMBER_PASSWORD_RESET,
         description=f"{current_user.name} ({current_user.role}) reset team member {target_user.name}'s password to their email address",
         user_name=current_user.name,
         user_email=current_user.email

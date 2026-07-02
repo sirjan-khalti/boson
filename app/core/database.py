@@ -1,8 +1,9 @@
-from sqlalchemy import create_engine, Column, String, DateTime, func
+from sqlalchemy import create_engine, Column, String, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 
 from app.core.config import settings
+from app.core.utils import generate_uuid
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -17,12 +18,10 @@ SessionLocal = sessionmaker(autoflush=True, bind=engine)
 
 Base = declarative_base()
 
-import uuid
-
 class BaseModelDB(Base):
     __abstract__ = True
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String, primary_key=True, default=generate_uuid)
     created_on = Column(DateTime, default=datetime.now)
     updated_on = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

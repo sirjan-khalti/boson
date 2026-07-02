@@ -4,10 +4,11 @@ from typing import List
 
 from app.core.database import get_db
 from app.schemas.job import JobCreate, JobResponse, JobStatusUpdate
-from app.api.deps import RequireRole, get_current_user
+from app.api.deps import RequireRole
 from app.models.user import User
 from app.services import job_service
 from app.services.activity_logger import log_activity
+from app.schemas.activity_log import ActionType
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -54,7 +55,7 @@ def create_job(
     new_job = job_service.create(db, job)
     log_activity(
         db=db,
-        action_type="job_created",
+        action_type=ActionType.JOB_CREATED,
         description=f"{current_user.name} ({current_user.role}) created a new job: {new_job.title} ({new_job.department})",
         user_name=current_user.name,
         user_email=current_user.email,
@@ -83,7 +84,7 @@ def update_job_status(
     updated = job_service.update_status(db, job, status_update.status)
     log_activity(
         db=db,
-        action_type="job_status_updated",
+        action_type=ActionType.JOB_STATUS_UPDATED,
         description=f"{current_user.name} ({current_user.role}) updated job '{updated.title}' status to {status_update.status}",
         user_name=current_user.name,
         user_email=current_user.email,

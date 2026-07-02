@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
 from app.models.activity_log import ActivityLog
+from app.schemas.activity_log import ActionType
 
 def log_activity(
     db: Session,
-    action_type: str,
+    action_type: ActionType,
     description: str,
     user_name: str,
     user_email: str = None,

@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 
 from app.core.database import get_db
 from app.models.activity_log import ActivityLog
-from app.schemas.activity_log import ActivityLogResponse, PaginatedActivityLogsResponse
-from app.api.deps import RequireRole, get_current_user
-from app.models.user import User
+from app.schemas.activity_log import PaginatedActivityLogsResponse, ActionType
+from app.api.deps import RequireRole
 
 router = APIRouter(prefix="/activity-logs", tags=["activity-logs"])
 
@@ -14,7 +13,7 @@ router = APIRouter(prefix="/activity-logs", tags=["activity-logs"])
 def get_activity_logs(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    action_type: Optional[str] = Query(None),
+    action_type: Optional[ActionType] = Query(None),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):

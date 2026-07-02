@@ -1,5 +1,3 @@
-import json
-
 EVALUATION_SCHEMA = {
     "summary": "",
     "match_score": 0,
