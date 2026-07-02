@@ -10,7 +10,7 @@ from app.models.user import User
 from app.schemas.user import UserResponse, Token, ChangePasswordInput
 from app.schemas.activity_log import ActionType
 from app.services.activity_logger import log_activity
-from app.api.deps import get_current_user
+from app.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

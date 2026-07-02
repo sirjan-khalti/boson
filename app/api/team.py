@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse
-from app.api.deps import RequireRole
+from app.api.dependencies import RequireRole
 from app.core.security import get_password_hash
 from app.services.activity_logger import log_activity
 from app.schemas.activity_log import ActionType

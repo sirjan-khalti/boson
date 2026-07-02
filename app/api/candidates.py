@@ -36,7 +36,7 @@ from app.services.parser import parse_candidate_cv
 from app.services.evaluator import evaluate_candidate
 from app.services.cv_store import save_cv
 from app.core.config import settings
-from app.api.deps import RequireRole, get_current_user
+from app.api.dependencies import RequireRole, get_current_user
 from app.core.logger import logger
 from app.services.recaptcha import verify_recaptcha
 from app.core.limiter import limiter

@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
 from app.core.database import engine
-from app.api.v1.routes import api_router
+from app.api import api_router
 from app.core.limiter import limiter
 
 @asynccontextmanager

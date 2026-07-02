@@ -5,7 +5,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.models.activity_log import ActivityLog
 from app.schemas.activity_log import PaginatedActivityLogsResponse, ActionType
-from app.api.deps import RequireRole
+from app.api.dependencies import RequireRole
 
 router = APIRouter(prefix="/activity-logs", tags=["activity-logs"])
 

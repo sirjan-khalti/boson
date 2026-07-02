@@ -4,7 +4,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.schemas.job import JobCreate, JobResponse, JobStatusUpdate
-from app.api.deps import RequireRole
+from app.api.dependencies import RequireRole
 from app.models.user import User
 from app.services import job_service
 from app.services.activity_logger import log_activity
