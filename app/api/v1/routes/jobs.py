@@ -70,18 +70,17 @@ def update_job_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN", "RECRUITER"])),
 ):
-    from app.models.job import Job as JobModel
-    existing = db.query(JobModel).filter(JobModel.id == job_id).first()
-    if not existing:
+    job = job_service.get_any_by_id(db, job_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if status_update.status == "Active" and not job_service.can_reopen(existing):
+    if status_update.status == "Active" and not job_service.can_reopen(job):
         raise HTTPException(
             status_code=400,
             detail="This job has been closed for more than 30 days and is archived. It cannot be reopened.",
         )
 
-    updated = job_service.update_status(db, job_id, status_update.status)
+    updated = job_service.update_status(db, job, status_update.status)
     log_activity(
         db=db,
         action_type="job_status_updated",
