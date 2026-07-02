@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import {
   ArrowLeft, MapPin, GraduationCap, Building2, Mail, Calendar, Star,
-  Check, X as XIcon, CalendarPlus, ChevronRight, FileText, Sparkles, FileSpreadsheet,
+  Check, X as XIcon, CalendarPlus, ChevronRight, FileText, Sparkles,
   Linkedin, Github, Globe, Clock, DollarSign, AlertTriangle,
 } from "lucide-react";
 import { type Candidate } from "@/lib/data";
@@ -13,73 +13,6 @@ import { Avatar } from "@/components/ats/Avatar";
 import { MatchBadge } from "@/components/ats/MatchBadge";
 import { StageChip } from "@/components/ats/StageChip";
 import { cn } from "@/lib/utils";
-
-function triggerDownload(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function buildCvText(c: Candidate, jobTitle?: string) {
-  const scores = Array.isArray(c.scores) ? c.scores : [];
-  return [
-    c.name,
-    `${c.title} · ${c.location} · ${c.email}`,
-    "",
-    "SUMMARY",
-    c.summary,
-    "",
-    "APPLIED FOR",
-    jobTitle ?? "—",
-    "",
-    "EXPERIENCE",
-    ...(c.workHistory || []).map((w: any) => `${w.role} — ${w.company} (${w.start} — ${w.end})`),
-    "",
-    "EDUCATION",
-    c.education,
-    "",
-    "SKILLS",
-    (c.skills || []).join(", "),
-    "",
-    "SCORE BREAKDOWN",
-    `Match Score: ${c.match} / 100`,
-    `Tier: ${c.tier}`,
-    ...scores.map((s: any) => `- ${s.criteria}: ${s.score} / ${s.weight} — ${s.reason || ""}`),
-    "",
-    "NOTES",
-    ...(c.notes || []).map((n: any) => `- [${n.date}] ${n.author}: ${n.content}`),
-  ].join("\n");
-}
-
-function buildCsv(c: Candidate, jobTitle?: string) {
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  const headers = ["Field", "Value"];
-  const scores = Array.isArray(c.scores) ? c.scores : [];
-  const rows: [string, string][] = [
-    ["Name", c.name],
-    ["Email", c.email],
-    ["Title", c.title],
-    ["Company", c.company],
-    ["Experience (years)", String(c.experience)],
-    ["Location", c.location],
-    ["Education", c.education],
-    ["Match (%)", String(c.match)],
-    ["Tier", c.tier],
-    ["Stage", c.stage],
-    ["Applied Date", c.appliedDate],
-    ["Applied Job", jobTitle ?? ""],
-    ["Skills", (c.skills || []).join("; ")],
-    ["Summary", c.summary],
-    ...scores.map((s: any) => [`${s.criteria} (/${s.weight})`, String(s.score)] as [string, string]),
-  ];
-  return [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-}
 
 function buildCandidateJson(c: Candidate) {
   if (c.personal_info && c.personal_info.full_name) {
@@ -349,9 +282,7 @@ export default function CandidateDetail() {
         </div>
       </motion.div>
 
-      <div className="grid gap-5 lg:grid-cols-[400px_1fr]">
-        {/* LEFT PANEL */}
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <Avatar name={c.name} size={56} />
@@ -719,72 +650,7 @@ export default function CandidateDetail() {
             </div>
           )}
         </div>
-
-        {/* RIGHT - PDF placeholder */}
-        <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              {c.name.replace(/\s+/g, "_")}_Resume
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => triggerDownload(`${c.name.replace(/\s+/g, "_")}_CV.txt`, buildCvText(c, job?.title), "text/plain")}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"
-              >
-                <FileText className="h-3.5 w-3.5" /> CV
-              </button>
-              <button
-                onClick={() => triggerDownload(`${c.name.replace(/\s+/g, "_")}.csv`, buildCsv(c, job?.title), "text/csv;charset=utf-8")}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
-              </button>
-            </div>
-          </div>
-          <div className="relative mt-3 h-[1100px] overflow-hidden rounded-xl bg-[oklch(0.96_0.005_280)] dark:bg-[oklch(0.22_0.02_285)]">
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="mx-auto h-[95%] w-[78%] rounded-md bg-white p-10 text-[oklch(0.18_0.02_280)] shadow-lg">
-                <div className="border-b border-zinc-200 pb-4">
-                  <div className="text-2xl font-semibold">{c.name}</div>
-                  <div className="mt-0.5 text-sm text-zinc-500">{c.title} · {c.location} · {c.email}</div>
-                </div>
-                <section className="mt-5">
-                  <h4 className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Summary</h4>
-                  <p className="mt-1.5 text-sm leading-relaxed text-zinc-700">{c.summary}</p>
-                </section>
-                <section className="mt-5">
-                  <h4 className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Experience</h4>
-                  <div className="mt-2 space-y-3 text-sm">
-                    <div>
-                      <div className="font-medium">{c.title} — {c.company}</div>
-                      <div className="text-xs text-zinc-500">2023 — Present</div>
-                      <ul className="mt-1 list-disc pl-5 text-zinc-700">
-                        <li>Designed and shipped systems using {c.skills.slice(0, 3).join(", ")}.</li>
-                        <li>Owned reliability & performance for high-traffic services.</li>
-                        <li>Mentored junior engineers and led code reviews.</li>
-                      </ul>
-                    </div>
-                  </div>
-                </section>
-                <section className="mt-5">
-                  <h4 className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Skills</h4>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {c.skills.map((s) => (
-                      <span key={s} className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700">{s}</span>
-                    ))}
-                  </div>
-                </section>
-                <section className="mt-5">
-                  <h4 className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Education</h4>
-                  <div className="mt-1 text-sm text-zinc-700">{c.education}</div>
-                </section>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+      </>
   ) : activeTab === "cv" ? (
     <div className="rounded-2xl border border-border bg-card p-6 space-y-4 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
