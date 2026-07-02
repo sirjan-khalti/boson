@@ -1,9 +1,10 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Float, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.core.database import BaseModelDB
+from app.schemas.candidate import EvaluationStatus
 
 class Candidate(BaseModelDB):
     __tablename__ = "candidates"
@@ -43,6 +44,13 @@ class Candidate(BaseModelDB):
     appliedDate = Column(DateTime, default=datetime.now)
     match = Column(Integer, default=0)
     tier = Column(String, nullable=True, index=True)
+    evaluation_status = Column(
+        SAEnum(EvaluationStatus, name="evaluation_status_enum", values_callable=lambda enum: [e.value for e in enum]),
+        nullable=False,
+        default=EvaluationStatus.PENDING,
+        server_default=EvaluationStatus.PENDING.value,
+        index=True,
+    )
     summary = Column(Text, nullable=True)
     notes = Column(JSONB, default=list)
     scores = Column(JSONB, default=list)

@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.core.database import get_db
-from app.models.activity_log import ActivityLog
 from app.schemas.activity_log import PaginatedActivityLogsResponse, ActionType
 from app.api.dependencies import RequireRole
+from app.services import activity_log
 
-router = APIRouter(prefix="/activity-logs", tags=["activity-logs"])
+router = APIRouter(tags=["activity-logs"])
 
 @router.get("/fetch", response_model=PaginatedActivityLogsResponse, dependencies=[Depends(RequireRole(["SUPERADMIN", "ADMIN"]))])
 def get_activity_logs(
@@ -21,29 +21,4 @@ def get_activity_logs(
     Fetch activity logs sorted by timestamp descending, paginated and filtered.
     Accessible only to SUPERADMIN and ADMIN users.
     """
-    query = db.query(ActivityLog)
-    
-    if action_type and action_type != "all":
-        query = query.filter(ActivityLog.action_type == action_type)
-        
-    if search:
-        search_filter = f"%{search}%"
-        query = query.filter(
-            (ActivityLog.description.ilike(search_filter)) |
-            (ActivityLog.user_name.ilike(search_filter)) |
-            (ActivityLog.user_email.ilike(search_filter))
-        )
-        
-    total = query.count()
-    offset = (page - 1) * size
-    logs = query.order_by(ActivityLog.timestamp.desc()).offset(offset).limit(size).all()
-    pages = (total + size - 1) // size if total > 0 else 0
-    
-    return PaginatedActivityLogsResponse(
-        items=logs,
-        total=total,
-        page=page,
-        size=size,
-        pages=pages
-    )
-
+    return activity_log.get_paginated(db, page, size, action_type, search)

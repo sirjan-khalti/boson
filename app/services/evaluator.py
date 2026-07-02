@@ -1,17 +1,17 @@
 import asyncio
 import json
-import re
-from traceback import print_tb
 from groq import AsyncGroq
 from app.core.config import settings
 from app.core.constants import DEFAULT_SCORING_CRITERIA, EVALUATION_SCHEMA, EVALUATOR_PROMPT_TEMPLATE
+from app.core.llm_utils import call_groq_json
 from app.core.logger import logger
-from app.services.llm_utils import clean_llm_response
 
 # =========================================================
 # CONFIG
 # =========================================================
 MODEL = "llama-3.3-70b-versatile"
+
+client = AsyncGroq(api_key=settings.GROQ_API_KEY, timeout=30.0, max_retries=0)
 
 
 # =========================================================
@@ -45,8 +45,6 @@ async def evaluate_candidate(
     dict
     """
 
-    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-
     prompt = EVALUATOR_PROMPT_TEMPLATE.format(
         evaluation_schema=json.dumps(EVALUATION_SCHEMA, indent=2),
         scoring_criteria=json.dumps(scoring_criteria, indent=2),
@@ -54,7 +52,9 @@ async def evaluate_candidate(
         job_description=job_description
     )
 
-    response = await client.chat.completions.create(
+    result = await call_groq_json(
+        client,
+        log_context="candidate evaluation",
         model=model,
         temperature=0,
         response_format={"type": "json_object"},
@@ -69,13 +69,9 @@ async def evaluate_candidate(
         ],
     )
 
-    content = response.choices[0].message.content
-
-    content = clean_llm_response(content)
-
     logger.info("Successfully evaluated candidate.")
 
-    return json.loads(content)
+    return result
 
 
 # =========================================================

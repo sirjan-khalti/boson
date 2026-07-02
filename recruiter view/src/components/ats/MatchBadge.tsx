@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { MatchTier } from "@/lib/data";
-import { Diamond, Award, Circle, X } from "lucide-react";
+import { Diamond, Award, Circle, X, Clock } from "lucide-react";
 
 const styles: Record<MatchTier, string> = {
   "Strong Fit": "bg-[oklch(0.62_0.18_140)/0.12] text-[oklch(0.4_0.18_140)] ring-[oklch(0.62_0.18_140)/0.3] dark:text-[oklch(0.78_0.16_140)]",
@@ -14,18 +14,35 @@ const icons: Record<MatchTier, React.ElementType> = {
   "Weak Fit": X,
 };
 
-export function MatchBadge({ tier, className }: { tier: MatchTier; className?: string }) {
-  const Icon = icons[tier];
+const KNOWN_TIERS: MatchTier[] = ["Strong Fit", "Moderate Fit", "Weak Fit"];
+
+export function MatchBadge({ tier, className }: { tier?: string | null; className?: string }) {
+  if (!tier || !(KNOWN_TIERS as string[]).includes(tier)) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground ring-1 ring-inset ring-border",
+          className,
+        )}
+      >
+        <Clock className="h-3 w-3" />
+        {tier || "Pending"}
+      </span>
+    );
+  }
+
+  const knownTier = tier as MatchTier;
+  const Icon = icons[knownTier];
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide ring-1 ring-inset",
-        styles[tier],
+        styles[knownTier],
         className,
       )}
     >
       <Icon className="h-3 w-3" />
-      {tier}
+      {knownTier}
     </span>
   );
 }

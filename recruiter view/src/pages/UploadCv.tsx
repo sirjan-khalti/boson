@@ -418,7 +418,7 @@ export default function UploadCvPage() {
     } catch (err: any) {
       console.error(err);
       setUploadState("error");
-      alert(err.message || "Failed to parse resume. Please fill the form manually.");
+      alert(err.message || "Failed to parse resume. Please fill the form.");
 
       if (typeof window !== "undefined" && (window as any).grecaptcha?.enterprise && widgetId !== null) {
         try {

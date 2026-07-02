@@ -134,4 +134,29 @@ export const api = {
         rejected: number;
       }>;
     }>(`/candidates/reports?start=${start}&end=${end}`),
+
+  // Evaluations (SUPERADMIN only)
+  getEvaluations: (params: { page: number; size: number; date_range: string; job_scope: string }) => {
+    const query = new URLSearchParams({
+      page: String(params.page),
+      size: String(params.size),
+      date_range: params.date_range,
+      job_scope: params.job_scope,
+    });
+    return apiFetch<{
+      items: Candidate[];
+      total: number;
+      page: number;
+      size: number;
+      pages: number;
+    }>(`/evaluations/fetch?${query.toString()}`);
+  },
+  retryEvaluation: (candidateId: string) =>
+    apiFetch<Candidate>(`/evaluations/${candidateId}/retry`, { method: "POST" }),
+  retryAllFailedEvaluations: (params: { date_range: string; job_scope: string }) => {
+    const query = new URLSearchParams(params);
+    return apiFetch<{ queued: number }>(`/evaluations/retry-failed?${query.toString()}`, {
+      method: "POST",
+    });
+  },
 };

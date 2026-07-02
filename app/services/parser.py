@@ -1,22 +1,21 @@
 import asyncio
 import os
 import json
-import re
 import fitz
 import requests
 from groq import AsyncGroq
 from tempfile import NamedTemporaryFile
 from fastapi.concurrency import run_in_threadpool
 from app.core.config import settings
+from app.core.llm_utils import call_groq_json
 from app.core.logger import logger
-from app.services.llm_utils import clean_llm_response
 
 # =========================================================
 # CONFIG
 # =========================================================
 MODEL = "llama-3.3-70b-versatile"
 
-client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+client = AsyncGroq(api_key=settings.GROQ_API_KEY, timeout=30.0, max_retries=0)
 
 
 # =========================================================
@@ -230,7 +229,9 @@ CV CONTENT:
         # =================================================
         # API CALL
         # =================================================
-        response = await client.chat.completions.create(
+        parsed = await call_groq_json(
+            client,
+            log_context="CV parsing",
             model=MODEL,
             temperature=0,
             response_format={"type": "json_object"},
@@ -245,18 +246,6 @@ CV CONTENT:
                 {"role": "user", "content": prompt},
             ],
         )
-
-        # =================================================
-        # CLEAN RESPONSE
-        # =================================================
-        content = response.choices[0].message.content
-
-        content = clean_llm_response(content)
-
-        # =================================================
-        # PARSE JSON
-        # =================================================
-        parsed = json.loads(content)
         logger.info("Successfully parsed CV")
         return parsed
 

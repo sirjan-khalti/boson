@@ -88,6 +88,7 @@ export function useAuth() {
     loading,
     isAuthenticated: !!user,
     isAdmin: user?.role === "ADMIN" || user?.role === "SUPERADMIN",
+    isSuperAdmin: user?.role === "SUPERADMIN",
     logout: async () => {
       try {
         const headers: Record<string, string> = {};

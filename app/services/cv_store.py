@@ -1,7 +1,8 @@
 import os
 import shutil
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 
+from app.core.exceptions import BadRequestError
 from app.core.utils import generate_uuid
 
 UPLOAD_DIR = "static/cvs"
@@ -14,14 +15,14 @@ def save_cv(file: UploadFile) -> str:
     """
     # Enforce strict PDF extension check
     if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-        
+        raise BadRequestError("Only PDF files are supported.")
+
     # Enforce size limit check
     file.file.seek(0, os.SEEK_END)
     size = file.file.tell()
     file.file.seek(0)  # reset pointer
     if size > MAX_SIZE:
-        raise HTTPException(status_code=400, detail="File too large. Maximum supported size is 10MB.")
+        raise BadRequestError("File too large. Maximum supported size is 10MB.")
 
     # Ensure directory exists
     os.makedirs(UPLOAD_DIR, exist_ok=True)

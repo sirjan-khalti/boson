@@ -391,7 +391,7 @@ export default function ApplyPage() {
     } catch (err: any) {
       console.error(err);
       setUploadState("error");
-      alert(err.message || "Failed to parse resume. Please fill the form manually.");
+      alert(err.message || "Failed to parse resume. Please fill the form.");
 
       // Reset reCAPTCHA widget on parse error
       if (typeof window !== "undefined" && (window as any).grecaptcha?.enterprise && widgetId !== null) {

@@ -10,6 +10,7 @@ import ActivityLogsPage from "@/pages/ActivityLogs";
 import UploadCvPage from "@/pages/UploadCv";
 import TeamPage from "@/pages/Team";
 import ReportsPage from "@/pages/Reports";
+import EvaluationsPage from "@/pages/Evaluations";
 
 function NotFound() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/upload-cv" element={<UploadCvPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/evaluations" element={<EvaluationsPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

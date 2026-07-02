@@ -1,4 +1,5 @@
 export type MatchTier = "Strong Fit" | "Moderate Fit" | "Weak Fit";
+export type EvaluationStatus = "PENDING" | "SUCCESS" | "FAILED";
 export type CandidateStage =
   | "Applied"
   | "Screening"
@@ -135,7 +136,8 @@ export type Candidate = {
   education: string;
   educationHistory: EducationEntry[];
   match: number;
-  tier: MatchTier;
+  tier: MatchTier | "Pending" | null;
+  evaluation_status: EvaluationStatus;
   skills: string[];
   missingSkills: string[];
   languages: { name: string; level: string }[];

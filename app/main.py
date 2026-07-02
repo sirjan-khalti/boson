@@ -1,14 +1,20 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from sqlalchemy import text
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
-from app.core.database import engine
-from app.api import api_router
+from app.core.exceptions import ServiceError
+from app.core.logger import logger
+from app.api.candidates import router as candidates_router
+from app.api.jobs import router as jobs_router
+from app.api.auth import router as auth_router
+from app.api.team import router as team_router
+from app.api.activity_logs import router as activity_logs_router
+from app.api.evaluations import router as evaluations_router
 from app.core.limiter import limiter
 
 @asynccontextmanager
@@ -34,6 +40,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(ServiceError)
+async def service_error_handler(request: Request, exc: ServiceError):
+    log_line = f"{request.method} {request.url.path} -> {exc.status_code} {exc.detail}"
+    if exc.status_code >= 500:
+        logger.error(log_line)
+    else:
+        logger.info(log_line)
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
+
 @app.get("/", tags=["root"])
 def read_root():
     return {
@@ -46,11 +66,11 @@ def read_root():
 
 @app.get("/health", tags=["health"])
 def health_check():
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return {"status": "healthy"}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database unreachable: {str(e)}")
+    return {"status": "healthy"}
 
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(candidates_router, prefix="/api/v1/candidates")
+app.include_router(jobs_router, prefix="/api/v1/jobs")
+app.include_router(auth_router, prefix="/api/v1/auth")
+app.include_router(team_router, prefix="/api/v1/team")
+app.include_router(activity_logs_router, prefix="/api/v1/activity-logs")
+app.include_router(evaluations_router, prefix="/api/v1/evaluations")

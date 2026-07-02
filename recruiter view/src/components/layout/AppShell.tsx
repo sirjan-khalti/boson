@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Briefcase, Users, KanbanSquare, BarChart3, Shield,
   LogOut, Plus, FileSpreadsheet,
-  History, KeyRound, FileUp,
+  History, KeyRound, FileUp, Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ats/Avatar";
@@ -31,7 +31,7 @@ function KhaltiLogo() {
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, loading, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, loading, isAuthenticated, isAdmin, isSuperAdmin, logout } = useAuth();
   const openCreateJob = useAts((s) => s.openCreateJob);
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -64,6 +64,9 @@ export function AppShell() {
     ...(isAdmin ? [
       { to: "/team", label: "Team", icon: Shield },
       { to: "/activity-logs", label: "Activity Logs", icon: History },
+    ] : []),
+    ...(isSuperAdmin ? [
+      { to: "/evaluations", label: "AI Evaluations", icon: Sparkles },
     ] : []),
   ];
 

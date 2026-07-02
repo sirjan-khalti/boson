@@ -2,8 +2,11 @@ from sqlalchemy import case, cast, Date, func
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 
+from app.core.exceptions import ServiceError
 from app.models.job import Job
 from app.schemas.job import JobCreate
+from app.schemas.activity_log import ActionType
+from app.services.activity_log import log_activity
 
 
 def get_all(db: Session, skip: int = 0, limit: int = 100) -> list[Job]:
@@ -92,3 +95,46 @@ def _closed_date_expr():
         (Job.status.like("Closed:%"), cast(func.split_part(Job.status, ":", 2), Date)),
         else_=cast(Job.postedDate, Date),
     )
+
+
+def get_active_job_or_404(db: Session, job_id: str) -> Job:
+    job = get_by_id(db, job_id)
+    if not job:
+        raise ServiceError(404, "Job not found")
+    return job
+
+
+def create_job_with_log(db: Session, data: JobCreate, current_user) -> Job:
+    new_job = create(db, data)
+    log_activity(
+        db=db,
+        action_type=ActionType.JOB_CREATED,
+        description=f"{current_user.name} ({current_user.role}) created a new job: {new_job.title} ({new_job.department})",
+        user_name=current_user.name,
+        user_email=current_user.email,
+        job_id=new_job.id,
+    )
+    return new_job
+
+
+def set_status(db: Session, job_id: str, new_status: str, current_user) -> Job:
+    job = get_any_by_id(db, job_id)
+    if not job:
+        raise ServiceError(404, "Job not found")
+
+    if new_status == "Active" and not can_reopen(job):
+        raise ServiceError(
+            400,
+            "This job has been closed for more than 30 days and is archived. It cannot be reopened.",
+        )
+
+    updated = update_status(db, job, new_status)
+    log_activity(
+        db=db,
+        action_type=ActionType.JOB_STATUS_UPDATED,
+        description=f"{current_user.name} ({current_user.role}) updated job '{updated.title}' status to {new_status}",
+        user_name=current_user.name,
+        user_email=current_user.email,
+        job_id=updated.id,
+    )
+    return updated

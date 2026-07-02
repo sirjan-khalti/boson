@@ -13,6 +13,21 @@ class CandidateStage(str, Enum):
     HIRED = "Hired"
     REJECTED = "Rejected"
 
+class EvaluationStatus(str, Enum):
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+class DateRangeFilter(str, Enum):
+    TODAY = "today"
+    WEEK = "week"
+    YEAR = "year"
+    ALL = "all"
+
+class JobScopeFilter(str, Enum):
+    OPEN = "open"
+    ALL = "all"
+
 class AddressSchema(BaseModel):
     city: str = ""
     state: str = ""
@@ -110,6 +125,7 @@ class CandidateResponse(BaseModel):
     appliedDate: datetime
     match: int
     tier: Optional[str] = None
+    evaluation_status: EvaluationStatus
     summary: Optional[str] = None
     notes: List[Dict[str, Any]] = []
     scores: List[Dict[str, Any]] = []

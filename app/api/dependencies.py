@@ -1,11 +1,13 @@
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.models.user import User
+from app.services import user
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
@@ -18,24 +20,19 @@ def get_current_user(
     if not actual_token:
         actual_token = request.cookies.get("access_token")
 
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     if not actual_token:
-        raise credentials_exception
+        raise UnauthorizedError()
     try:
         payload = jwt.decode(actual_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
-            raise credentials_exception
+            raise UnauthorizedError()
     except JWTError:
-        raise credentials_exception
-        
-    user = db.query(User).filter(User.email == email).first()
+        raise UnauthorizedError()
+
+    user = user.get_by_email(db, email)
     if user is None:
-        raise credentials_exception
+        raise UnauthorizedError()
     return user
 
 class RequireRole:
@@ -44,8 +41,5 @@ class RequireRole:
 
     def __call__(self, current_user: User = Depends(get_current_user)):
         if current_user.role not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions"
-            )
+            raise ForbiddenError()
         return current_user
