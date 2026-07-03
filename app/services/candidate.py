@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.constants import (
     CANDIDATE_SOURCE_CAREERS_PAGE,
     DEFAULT_SALARY_EXPECTATION,
+    DEFAULT_SCORING_CRITERIA,
     MATCH_SCORE_MODERATE_FIT_THRESHOLD,
     MATCH_SCORE_STRONG_FIT_THRESHOLD,
 )
@@ -77,7 +78,9 @@ async def run_background_evaluation(candidate_id: str, job_id: str, candidate_da
         )
 
         eval_result = await evaluate_candidate(
-            candidate_data=candidate_data, job_description=job.description
+            candidate_data=candidate_data,
+            job_description=job.description,
+            scoring_criteria=job.scoring_criteria or DEFAULT_SCORING_CRITERIA,
         )
 
         match_score = eval_result.get("match_score", 0)

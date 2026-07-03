@@ -17,6 +17,12 @@ export type ScoreBreakdown = {
   reason: string;
 };
 
+export type ScoringCriterion = {
+  criteria: string;
+  weight: number;
+  description: string;
+};
+
 export type AddressInfo = {
   city: string;
   state: string;
@@ -106,6 +112,7 @@ export type Job = {
   postedDate: string;
   description: string;
   skills: string[];
+  scoring_criteria: ScoringCriterion[];
 };
 
 export type WorkExperience = {

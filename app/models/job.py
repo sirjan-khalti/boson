@@ -16,5 +16,6 @@ class Job(BaseModelDB):
     postedDate = Column(DateTime, default=datetime.now)
     description = Column(Text, nullable=False)
     skills = Column(JSONB, default=list)
+    scoring_criteria = Column(JSONB, nullable=False, default=list)
 
     candidates = relationship("Candidate", back_populates="job", cascade="all, delete-orphan")

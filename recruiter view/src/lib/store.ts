@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
-import type { Candidate, Job, CandidateStage } from "@/lib/data";
+import type { Candidate, Job, CandidateStage, ScoringCriterion } from "@/lib/data";
 
 type NewJobInput = {
   title: string;
@@ -9,6 +9,7 @@ type NewJobInput = {
   type: Job["type"];
   description: string;
   skills: string[];
+  scoring_criteria: ScoringCriterion[];
 };
 
 type AtsState = {
