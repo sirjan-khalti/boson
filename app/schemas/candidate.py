@@ -1,7 +1,13 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
+
+from app.core.config import settings
+from app.core.constants import CV_UPLOAD_DIR
+from app.schemas.job import JobStatus
+from app.schemas.user import UserResponse
 
 class CandidateStage(str, Enum):
     APPLIED = "Applied"
@@ -103,7 +109,7 @@ class PreferencesSchema(BaseModel):
     preferred_employment_type: List[str] = []
 
 class CandidateBase(BaseModel):
-    jobId: str
+    job_id: UUID
     personal_info: PersonalInfoSchema = PersonalInfoSchema()
     professional_summary: ProfessionalSummarySchema = ProfessionalSummarySchema()
     skills: List[str] = []
@@ -116,77 +122,147 @@ class CandidateBase(BaseModel):
     awards: List[str] = []
     candidate_preferences: PreferencesSchema = PreferencesSchema()
     custom_fields: Dict[str, Any] = {}
-    
-    cvUrl: Optional[str] = None
-    cv_filelink: Optional[str] = None
 
 class CandidateCreate(CandidateBase):
     pass
 
-class CandidateResponse(BaseModel):
-    id: str
-    jobId: str
-    stage: str
-    pastStages: List[str] = []
-    appliedDate: datetime
-    match: int
-    tier: Optional[Tier] = None
-    evaluation_status: EvaluationStatus
+class ParsedResumeResponse(CandidateBase):
+    """CandidateBase minus job_id — a resume hasn't been tied to a job yet
+    at parse time, that only happens on /submit."""
+    job_id: Optional[UUID] = None
+
+class CandidateNoteResponse(BaseModel):
+    id: UUID
+    author: Optional[UserResponse] = None
+    content: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CandidateStageHistoryEntry(BaseModel):
+    stage: CandidateStage
+    changed_at: datetime
+    changed_by: Optional[UserResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CandidateEvaluationDetail(BaseModel):
     summary: Optional[str] = None
-    notes: List[Dict[str, Any]] = []
     scores: List[Dict[str, Any]] = []
     strengths: List[str] = []
     weaknesses: List[str] = []
-    cvUrl: Optional[str] = None
-    cv_filelink: Optional[str] = None
-    
-    # Flat compat fields for recruiter view
+    evaluated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CandidateResponse(BaseModel):
+    id: UUID
+    job_id: UUID
+    stage: CandidateStage
+    stage_history: List[CandidateStageHistoryEntry] = []
+    applied_date: datetime
+    match_score: int
+    tier: Optional[Tier] = None
+    evaluation_status: EvaluationStatus
+    evaluation: Optional[CandidateEvaluationDetail] = None
+    notes: List[CandidateNoteResponse] = []
+
+    # Real columns — genuinely used for search/filter/sort (see
+    # app/models/candidate.py for why these stay stored)
     name: str = ""
-    email: str = ""
-    phone: str = ""
-    avatar: Optional[str] = None
-    title: Optional[str] = None
-    company: Optional[str] = None
     experience: float = 0.0
-    location: Optional[str] = None
-    education: Optional[str] = None
-    
+
+    cv_filelink: Optional[str] = None
+
     # Nested fields matching the parser schema
     personal_info: PersonalInfoSchema = PersonalInfoSchema()
     professional_summary: ProfessionalSummarySchema = ProfessionalSummarySchema()
     skills: List[str] = []
-    missingSkills: List[str] = []
     projects: List[ProjectItemSchema] = []
     achievements: List[str] = []
     awards: List[str] = []
     publications: Optional[List[str]] = []
     candidate_preferences: PreferencesSchema = PreferencesSchema()
     custom_fields: Dict[str, Any] = {}
-    
-    # History lists matching DB Column names but exposed to JSON
+
     experience_history: List[ExperienceItemSchema] = []
     education_history: List[EducationItemSchema] = []
     certifications_history: List[CertificationItemSchema] = []
     languages_history: List[LanguageItemSchema] = []
-    
-    # Legacy nested fields
-    educationHistory: List[Dict[str, Any]] = []
-    workHistory: List[Dict[str, Any]] = []
-    links: Dict[str, Optional[str]] = {}
-    certifications: List[str] = []
-    languages: List[Dict[str, Any]] = []
-    
-    salaryExpectation: Optional[str] = None
-    noticePeriod: Optional[str] = None
+
+    salary_expectation: Optional[str] = None
+    notice_period: Optional[str] = None
     source: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    # Computed, not stored: derived from the nested profile JSON at
+    # serialization time so there's no duplicated/staleness-prone copy.
+    @computed_field
+    @property
+    def email(self) -> str:
+        return self.personal_info.email
+
+    @computed_field
+    @property
+    def phone(self) -> str:
+        return self.personal_info.phone
+
+    @computed_field
+    @property
+    def title(self) -> Optional[str]:
+        return self.experience_history[0].job_title if self.experience_history else None
+
+    @computed_field
+    @property
+    def company(self) -> Optional[str]:
+        return self.experience_history[0].company_name if self.experience_history else None
+
+    @computed_field
+    @property
+    def location(self) -> Optional[str]:
+        addr = self.personal_info.address
+        parts = [p for p in [addr.city, addr.country] if p]
+        return ", ".join(parts) if parts else None
+
+    @computed_field
+    @property
+    def education(self) -> Optional[str]:
+        return self.education_history[0].degree if self.education_history else None
+
+    @computed_field
+    @property
+    def cv_url(self) -> Optional[str]:
+        if not self.cv_filelink:
+            return None
+        return f"{settings.BASE_URL}/{CV_UPLOAD_DIR}/{self.cv_filelink}"
 
 class CandidateStageUpdate(BaseModel):
     stage: CandidateStage
 
 class CandidateNoteCreate(BaseModel):
     content: str
+
+class CandidateListFilters(BaseModel):
+    page: int = Field(1, ge=1)
+    size: int = Field(20, ge=1, le=10000)
+    jobId: Optional[UUID] = None
+    search: Optional[str] = None
+    minScore: Optional[int] = None
+    minExp: Optional[float] = None
+    stage: Optional[str] = None
+    tiers: Optional[List[str]] = None
+    source: Optional[str] = None
+    sort_by: str = "match_score"
+    sort_order: str = "desc"
+
+class EvaluationScopeFilters(BaseModel):
+    date_range: DateRangeFilter = DateRangeFilter.TODAY
+    job_scope: JobScopeFilter = JobScopeFilter.OPEN
+
+class EvaluationListFilters(EvaluationScopeFilters):
+    page: int = Field(1, ge=1)
+    size: int = Field(20, ge=1, le=200)
 
 class PaginatedCandidatesResponse(BaseModel):
     items: List[CandidateResponse]
@@ -195,3 +271,34 @@ class PaginatedCandidatesResponse(BaseModel):
     size: int
     pages: int
 
+class CandidateFilterOptionsResponse(BaseModel):
+    stages: List[str]
+    tiers: List[str]
+    sources: List[str]
+
+class FunnelCounts(BaseModel):
+    applied: int
+    screened: int
+    shortlisted: int
+    interviewed: int
+    finalReview: int
+    offer: int
+    hired: int
+    rejected: int
+
+class RecruitmentSummaryStats(FunnelCounts):
+    jobs: int
+
+class RecruitmentJobBreakdown(FunnelCounts):
+    id: UUID
+    title: str
+    department: str
+    status: JobStatus
+    postedDate: str
+
+class RecruitmentReportResponse(BaseModel):
+    summaryStats: RecruitmentSummaryStats
+    jobBreakdown: List[RecruitmentJobBreakdown]
+
+class RetryFailedEvaluationsResponse(BaseModel):
+    queued: int

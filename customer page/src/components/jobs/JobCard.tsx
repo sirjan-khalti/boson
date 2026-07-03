@@ -35,7 +35,7 @@ export function JobCard({ job }: { job: any }) {
         {job.experience && <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />{job.experience}</span>}
       </div>
       <div className="mt-auto flex items-center justify-between border-t border-border/60 pt-4">
-        <span className="text-xs text-muted-foreground">Posted {job.postedAt || new Date(job.postedDate || Date.now()).toLocaleDateString()}</span>
+        <span className="text-xs text-muted-foreground">Posted {job.postedAt || new Date(job.posted_date || Date.now()).toLocaleDateString()}</span>
         <Button asChild size="sm" className="bg-khalti text-khalti-foreground hover:bg-khalti/90">
           <Link to={`/jobs/${job.id}`}>
             View details

@@ -1,39 +1,50 @@
 from sqlalchemy.orm import Session
+from uuid import UUID
 
-from app.core.constants import ASSIGNABLE_ROLES
-from app.core.exceptions import ServiceError
+from app.core.exceptions import (
+    EmailAlreadyExistsError,
+    ForbiddenError,
+    InvalidRoleError,
+    UserNotFoundError,
+)
 from app.core.security import get_password_hash
-from app.models.user import User
+from app.models.user import Users
 from app.schemas.activity_log import ActionType
 from app.schemas.user import Role
 from app.services.activity_log import log_activity
 
-
-def list_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
-    return db.query(User).offset(skip).limit(limit).all()
-
-
-def get_by_email(db: Session, email: str) -> User | None:
-    return db.query(User).filter(User.email == email).first()
+# Roles that can be assigned to a team member (SUPERADMIN is not assignable).
+# Lives here rather than app.core.constants because it depends on
+# app.schemas.user.Role — core must not depend on schemas, or any schema
+# module that itself imports from core.constants creates an import cycle.
+ASSIGNABLE_ROLES = [Role.ADMIN, Role.RECRUITER, Role.VIEWER]
 
 
-def update_role(db: Session, user_id: str, new_role: Role, current_user: User) -> User:
+def list_users(db: Session, skip: int = 0, limit: int = 100) -> list[Users]:
+    return db.query(Users).offset(skip).limit(limit).all()
+
+
+def get_by_email(db: Session, email: str) -> Users | None:
+    return db.query(Users).filter(Users.email == email).first()
+
+
+def update_role(db: Session, user_id: UUID, new_role: Role, current_user: Users) -> Users:
     if new_role not in ASSIGNABLE_ROLES:
-        raise ServiceError(400, "Invalid role specified")
+        raise InvalidRoleError()
 
-    target_user = db.query(User).filter(User.id == user_id).first()
+    target_user = db.query(Users).filter(Users.id == user_id).first()
     if not target_user:
-        raise ServiceError(404, "User not found")
+        raise UserNotFoundError()
 
     if target_user.role == Role.SUPERADMIN:
-        raise ServiceError(403, "Cannot alter the SUPERADMIN role")
+        raise ForbiddenError()
 
     # Enforce role hierarchy safety to prevent privilege escalation
     if current_user.role != Role.SUPERADMIN:
         if current_user.id == target_user.id:
-            raise ServiceError(403, "Cannot alter your own role")
+            raise ForbiddenError()
         if target_user.role == Role.ADMIN and new_role != Role.ADMIN:
-            raise ServiceError(403, "Admins cannot demote other ADMINs")
+            raise ForbiddenError()
 
     old_role = target_user.role
     target_user.role = new_role
@@ -51,17 +62,17 @@ def update_role(db: Session, user_id: str, new_role: Role, current_user: User) -
     return target_user
 
 
-def create_member(db: Session, name: str, email: str, role: Role, current_user: User) -> User:
+def create_member(db: Session, name: str, email: str, role: Role, current_user: Users) -> Users:
     # SUPERADMIN cannot be assigned via this endpoint
     if role not in ASSIGNABLE_ROLES:
-        raise ServiceError(400, "Invalid role specified")
+        raise InvalidRoleError()
 
-    existing_user = db.query(User).filter(User.email == email).first()
+    existing_user = db.query(Users).filter(Users.email == email).first()
     if existing_user:
-        raise ServiceError(400, "The user with this email already exists in the system.")
+        raise EmailAlreadyExistsError()
 
     # Initial password is the email address
-    new_user = User(
+    new_user = Users(
         name=name,
         email=email,
         hashed_password=get_password_hash(email),
@@ -83,13 +94,13 @@ def create_member(db: Session, name: str, email: str, role: Role, current_user: 
     return new_user
 
 
-def reset_password(db: Session, user_id: str, current_user: User) -> User:
-    target_user = db.query(User).filter(User.id == user_id).first()
+def reset_password(db: Session, user_id: UUID, current_user: Users) -> Users:
+    target_user = db.query(Users).filter(Users.id == user_id).first()
     if not target_user:
-        raise ServiceError(404, "User not found")
+        raise UserNotFoundError()
 
     if target_user.role == Role.SUPERADMIN and current_user.role != Role.SUPERADMIN:
-        raise ServiceError(403, "Cannot reset the password of a SUPERADMIN")
+        raise ForbiddenError()
 
     target_user.hashed_password = get_password_hash(target_user.email)
 

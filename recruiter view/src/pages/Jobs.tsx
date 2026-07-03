@@ -58,13 +58,13 @@ export default function JobsPage() {
   const isArchived = (j: typeof jobs[number]) => {
     if (j.status !== "Closed") return false;
 
-    const closedDate = new Date(j.closed_date || j.postedDate);
+    const closedDate = new Date(j.closed_date || j.posted_date);
     const diffTime = new Date().getTime() - closedDate.getTime();
     const diffDays = diffTime / (1000 * 60 * 60 * 24);
     return diffDays >= 30;
   };
 
-  const getClosedDateStr = (j: typeof jobs[number]) => j.closed_date || j.postedDate;
+  const getClosedDateStr = (j: typeof jobs[number]) => j.closed_date || j.posted_date;
 
   const formatToDDMMYYYY = (dateStr: string) => {
     if (!dateStr) return "N/A";
@@ -230,8 +230,8 @@ export default function JobsPage() {
               <th onClick={() => handleSort("applicants")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
                 Applicants{renderSortIcon("applicants")}
               </th>
-              <th onClick={() => handleSort("postedDate")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
-                Posted{renderSortIcon("postedDate")}
+              <th onClick={() => handleSort("posted_date")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
+                Posted{renderSortIcon("posted_date")}
               </th>
               {tab === "Closed" && (
                 <th className="px-3 py-2.5 text-left font-medium select-none">
@@ -282,7 +282,7 @@ export default function JobsPage() {
                 <td className="px-3 py-3 text-muted-foreground">{j.department}</td>
                 <td className="px-3 py-3 tabular-nums">{j.applicants}</td>
                 <td className="px-3 py-3 text-muted-foreground">
-                  {formatToDDMMYYYY(j.postedDate)}
+                  {formatToDDMMYYYY(j.posted_date)}
                 </td>
                 {tab === "Closed" && (
                   <td className="px-3 py-3 text-muted-foreground">

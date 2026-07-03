@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional
 from enum import Enum
+from uuid import UUID
 
 class ActionType(str, Enum):
     JOB_CREATED = "job_created"
@@ -15,15 +16,21 @@ class ActionType(str, Enum):
     MEMBER_PASSWORD_RESET = "member_password_reset"
     PASSWORD_CHANGED = "password_changed"
 
+class ActivityLogFilters(BaseModel):
+    page: int = Field(1, ge=1)
+    size: int = Field(20, ge=1, le=100)
+    action_type: Optional[ActionType] = None
+    search: Optional[str] = None
+
 class ActivityLogResponse(BaseModel):
-    id: str
+    id: UUID
     timestamp: datetime
     action_type: ActionType
     description: str
     user_name: str
     user_email: Optional[str] = None
-    job_id: Optional[str] = None
-    candidate_id: Optional[str] = None
+    job_id: Optional[UUID] = None
+    candidate_id: Optional[UUID] = None
 
     model_config = ConfigDict(from_attributes=True)
 

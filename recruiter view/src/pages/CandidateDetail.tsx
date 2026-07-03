@@ -15,117 +15,45 @@ import { StageChip } from "@/components/ats/StageChip";
 import { cn } from "@/lib/utils";
 
 function buildCandidateJson(c: Candidate) {
-  if (c.personal_info && c.personal_info.full_name) {
-    return {
-      personal_info: {
-        full_name: c.personal_info.full_name,
-        first_name: c.personal_info.first_name,
-        last_name: c.personal_info.last_name,
-        email: c.personal_info.email,
-        phone: c.personal_info.phone,
-        address: c.personal_info.address || { city: "", state: "", country: "" },
-        profiles: c.personal_info.profiles || { linkedin: "", github: "", portfolio: "" }
-      },
-      professional_summary: {
-        summary: "",
-        total_experience_years: 0,
-        notice_period_days: 0,
-        preferred_locations: [],
-        authorized_to_work_in_nepal: false,
-        expected_salary: "",
-        ...(c.professional_summary || {})
-      },
-      skills: c.skills || [],
-      experience: c.experience_history || [],
-      education: c.education_history || [],
-      projects: c.projects || [],
-      certifications: c.certifications_history || [],
-      languages: c.languages_history || [],
-      achievements: c.achievements || [],
-      awards: c.awards || [],
-      candidate_preferences: c.candidate_preferences || {
-        preferred_roles: [],
-        preferred_locations: [],
-        preferred_employment_type: []
-      },
-      custom_fields: c.custom_fields || {
-        extraInformation: "",
-        salaryExpectation: "",
-        publications: ""
-      }
-    };
-  }
-
   const parts = (c.name || "").trim().split(/\s+/);
   const firstName = parts[0] || "";
   const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "";
 
   return {
     personal_info: {
-      full_name: c.name,
-      first_name: firstName,
-      last_name: lastName,
-      email: c.email,
-      phone: c.phone,
-      address: {
-        city: c.location.split(",")[0]?.trim() || c.location,
-        state: "",
-        country: c.location.toLowerCase().includes("remote") ? "Remote" : "Nepal"
-      },
-      profiles: {
-        linkedin: c.links?.linkedin || "",
-        github: c.links?.github || "",
-        portfolio: c.links?.portfolio || ""
-      }
+      full_name: c.personal_info?.full_name || c.name,
+      first_name: c.personal_info?.first_name || firstName,
+      last_name: c.personal_info?.last_name || lastName,
+      email: c.personal_info?.email || c.email,
+      phone: c.personal_info?.phone || c.phone,
+      address: c.personal_info?.address || { city: "", state: "", country: "" },
+      profiles: c.personal_info?.profiles || { linkedin: "", github: "", portfolio: "" }
     },
     professional_summary: {
-      summary: c.summary,
+      summary: c.evaluation?.summary || "",
       total_experience_years: c.experience,
-      notice_period_days: parseInt(c.noticePeriod?.replace(/\D/g, "") || "", 10) || 30,
-      preferred_locations: ["Kathmandu", "Remote"],
-      authorized_to_work_in_nepal: true
+      notice_period_days: 0,
+      preferred_locations: [],
+      authorized_to_work_in_nepal: false,
+      expected_salary: "",
+      ...(c.professional_summary || {})
     },
     skills: c.skills || [],
-    experience: (c.workHistory || []).map((w) => ({
-      company_name: w.company,
-      job_title: w.role,
-      employment_type: "Full-time",
-      location: "",
-      start_date: `${w.start}-01-01`,
-      end_date: w.end === "Present" ? "" : `${w.end}-12-31`,
-      currently_working: w.end === "Present",
-      work_summary: w.description || "",
-      technologies_used: (c.skills || []).slice(0, 3)
-    })),
-    education: (c.educationHistory || []).map((e) => ({
-      degree: e.degree,
-      field_of_study: "",
-      institution_name: e.school,
-      location: "",
-      start_date: `${e.start}-01-01`,
-      end_date: `${e.end}-12-31`,
-      grade: ""
-    })),
-    projects: [],
-    certifications: (c.certifications || []).map((cert) => ({
-      name: cert,
-      issuer: "",
-      issue_date: ""
-    })),
-    languages: (c.languages || []).map((l) => ({
-      language: l.name,
-      proficiency: l.level
-    })),
+    experience: c.experience_history || [],
+    education: c.education_history || [],
+    projects: c.projects || [],
+    certifications: c.certifications_history || [],
+    languages: c.languages_history || [],
     achievements: c.achievements || [],
-    awards: [],
-    candidate_preferences: {
+    awards: c.awards || [],
+    candidate_preferences: c.candidate_preferences || {
       preferred_roles: [],
       preferred_locations: [],
       preferred_employment_type: []
     },
-    custom_fields: {
+    custom_fields: c.custom_fields || {
       extraInformation: "",
-      salaryExpectation: c.salaryExpectation || "",
+      salaryExpectation: c.salary_expectation || "",
       publications: ""
     }
   };
@@ -224,7 +152,7 @@ export default function CandidateDetail() {
     );
   }
 
-  const job = jobs.find((j) => j.id === c.jobId);
+  const job = jobs.find((j) => j.id === c.job_id);
   const candidateJson = buildCandidateJson(c);
 
   return (
@@ -272,11 +200,11 @@ export default function CandidateDetail() {
               <h2 className="text-sm font-semibold">AI Summary</h2>
               <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">Auto-generated</span>
             </div>
-            <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">{c.summary}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">{c.evaluation?.summary || "—"}</p>
           </div>
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Match score</div>
-            <div className="mt-0.5 text-3xl font-semibold tabular-nums">{c.match}<span className="text-base text-muted-foreground">%</span></div>
+            <div className="mt-0.5 text-3xl font-semibold tabular-nums">{c.match_score}<span className="text-base text-muted-foreground">%</span></div>
             <div className="mt-1"><MatchBadge tier={c.tier} /></div>
           </div>
         </div>
@@ -294,10 +222,10 @@ export default function CandidateDetail() {
             </div>
             <dl className="mt-4 space-y-2 text-sm">
               <Row icon={Mail} label={candidateJson?.personal_info.email || c.email} />
-              <Row icon={Building2} label={c.company} />
-              <Row icon={MapPin} label={candidateJson ? `${candidateJson.personal_info.address.city}, ${candidateJson.personal_info.address.state}, ${candidateJson.personal_info.address.country}` : c.location} />
-              <Row icon={GraduationCap} label={c.education} />
-              <Row icon={Calendar} label={`Applied ${c.appliedDate} · ${job?.title}`} />
+              <Row icon={Building2} label={c.company ?? "—"} />
+              <Row icon={MapPin} label={candidateJson ? `${candidateJson.personal_info.address.city}, ${candidateJson.personal_info.address.state}, ${candidateJson.personal_info.address.country}` : (c.location ?? "—")} />
+              <Row icon={GraduationCap} label={c.education ?? "—"} />
+              <Row icon={Calendar} label={`Applied ${c.applied_date} · ${job?.title}`} />
               {candidateJson?.personal_info.profiles.linkedin && <Row icon={Linkedin} label={candidateJson.personal_info.profiles.linkedin} />}
               {candidateJson?.personal_info.profiles.github && <Row icon={Github} label={candidateJson.personal_info.profiles.github} />}
               {candidateJson?.personal_info.profiles.portfolio && <Row icon={Globe} label={candidateJson.personal_info.profiles.portfolio} />}
@@ -334,8 +262,8 @@ export default function CandidateDetail() {
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Compensation</h3>
             <dl className="space-y-2 text-sm">
-              <Row icon={DollarSign} label={`Expected: ${candidateJson?.professional_summary.expected_salary || c.salaryExpectation}`} />
-              <Row icon={Clock} label={`Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.noticePeriod}`} />
+              <Row icon={DollarSign} label={`Expected: ${candidateJson?.professional_summary.expected_salary || c.salary_expectation}`} />
+              <Row icon={Clock} label={`Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.notice_period}`} />
             </dl>
           </div>
 
@@ -349,7 +277,7 @@ export default function CandidateDetail() {
                   <Check className="h-3.5 w-3.5 text-emerald-500" /> Strengths
                 </div>
                 <ul className="mt-1.5 space-y-1 list-disc list-inside text-xs text-muted-foreground pl-1">
-                  {c.strengths.map((s, idx) => (
+                  {(c.evaluation?.strengths || []).map((s, idx) => (
                     <li key={idx}>{s}</li>
                   ))}
                 </ul>
@@ -359,7 +287,7 @@ export default function CandidateDetail() {
                   <XIcon className="h-3.5 w-3.5 text-rose-500" /> Areas for Development
                 </div>
                 <ul className="mt-1.5 space-y-1 list-disc list-inside text-xs text-muted-foreground pl-1">
-                  {c.weaknesses.map((w, idx) => (
+                  {(c.evaluation?.weaknesses || []).map((w, idx) => (
                     <li key={idx}>{w}</li>
                   ))}
                 </ul>
@@ -387,13 +315,13 @@ export default function CandidateDetail() {
               </div>
               <div className="text-right">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Points</div>
-                <div className="text-xl font-black text-foreground">{c.match} <span className="text-xs text-muted-foreground font-normal">/100</span></div>
+                <div className="text-xl font-black text-foreground">{c.match_score} <span className="text-xs text-muted-foreground font-normal">/100</span></div>
               </div>
             </div>
 
             {/* Categories list */}
             <div className="space-y-3">
-              {(Array.isArray(c.scores) ? c.scores : []).map((item: any) => {
+              {(c.evaluation?.scores || []).map((item: any) => {
                 const pct = item.weight > 0 ? (item.score / item.weight) * 100 : 0;
                 const isFailed = item.score < (item.weight / 2);
 
@@ -439,7 +367,7 @@ export default function CandidateDetail() {
                   </div>
                 );
               })}
-              {(!Array.isArray(c.scores) || c.scores.length === 0) && (
+              {(!c.evaluation?.scores || c.evaluation.scores.length === 0) && (
                 <div className="text-sm text-muted-foreground text-center py-4">No score breakdown available</div>
               )}
             </div>
@@ -448,10 +376,10 @@ export default function CandidateDetail() {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <h3 className="text-sm font-semibold">Recruiter notes</h3>
               <ul className="mt-3 space-y-3">
-                {c.notes.map((n, i) => (
-                  <li key={i} className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                {c.notes.map((n) => (
+                  <li key={n.id} className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">{n.author}</span><span>{n.date}</span>
+                      <span className="font-medium text-foreground">{n.author?.name ?? "Unknown"}</span><span>{new Date(n.created_at).toLocaleDateString()}</span>
                     </div>
                     <p className="mt-1">{n.content}</p>
                   </li>
@@ -659,7 +587,7 @@ export default function CandidateDetail() {
           <p className="text-xs text-muted-foreground mt-0.5">Rendered live from the secure upload location / minIO storage server.</p>
         </div>
         <a
-          href={c.cvUrl || "#"}
+          href={c.cv_url || "#"}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-muted active:scale-95 transition-all text-foreground"
@@ -668,9 +596,9 @@ export default function CandidateDetail() {
         </a>
       </div>
       <div className="relative overflow-hidden rounded-xl border border-border bg-muted/20 shadow-inner flex items-center justify-center h-[750px]">
-        {c.cvUrl ? (
+        {c.cv_url ? (
           <iframe
-            src={`${c.cvUrl}#toolbar=0`}
+            src={`${c.cv_url}#toolbar=0`}
             className="w-full h-full border-none"
             title={`${c.name} Resume`}
           />

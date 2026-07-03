@@ -39,7 +39,7 @@ export function JobModal() {
                   <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {job.location}</span>
                   <span className="inline-flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" /> {job.type}</span>
                   <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {job.applicants} applicants</span>
-                  <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Posted {job.postedDate}</span>
+                  <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> Posted {job.posted_date}</span>
                 </div>
               </div>
               <button

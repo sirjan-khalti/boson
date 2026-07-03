@@ -99,7 +99,7 @@ export function ResumeDropzone({
             {state === "error" && (
               <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[oklch(0.62_0.24_27)]">
                 <AlertCircle className="h-4 w-4" />
-                We couldn't read this resume. Remove it and try again, or fill out the form manually below.
+                We couldn't read this resume. Remove it and try again, or fill out the form below.
               </div>
             )}
           </div>

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from enum import Enum
+from uuid import UUID
 
 class Role(str, Enum):
     SUPERADMIN = "SUPERADMIN"
@@ -17,7 +18,7 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     email: EmailStr
     role: Role
@@ -32,3 +33,11 @@ class Token(BaseModel):
 class ChangePasswordInput(BaseModel):
     old_password: str
     new_password: str
+
+class RoleUpdate(BaseModel):
+    role: Role
+
+class UserCreateInput(BaseModel):
+    name: str
+    email: str
+    role: Role

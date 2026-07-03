@@ -70,10 +70,10 @@ export default function PipelinePage() {
   const visible = useMemo(
     () => {
       if (jobId) {
-        return seed.filter((c) => c.jobId === jobId);
+        return seed.filter((c) => c.job_id === jobId);
       }
       return seed.filter((c) => {
-        const job = jobs.find((j) => j.id === c.jobId);
+        const job = jobs.find((j) => j.id === c.job_id);
         return job?.status === "Active";
       });
     },
@@ -214,7 +214,7 @@ function Card({ c }: { c: Candidate }) {
           <div className="truncate text-sm font-medium">{c.name}</div>
           <div className="truncate text-[11px] text-muted-foreground">{c.title}</div>
         </div>
-        <span className="text-xs font-semibold tabular-nums">{c.match}%</span>
+        <span className="text-xs font-semibold tabular-nums">{c.match_score}%</span>
       </div>
       <div className="mt-2 flex items-center justify-between">
         <MatchBadge tier={c.tier} />

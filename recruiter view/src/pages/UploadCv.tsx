@@ -744,7 +744,7 @@ export default function UploadCvPage() {
         achievements: cleanAchievements,
         awards: cleanAwards,
         custom_fields: builtCustomFields,
-        jobId: selectedJobId,
+        job_id: selectedJobId,
       };
 
       try {

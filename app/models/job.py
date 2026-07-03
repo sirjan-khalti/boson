@@ -6,7 +6,7 @@ from datetime import datetime
 from app.core.database import BaseModelDB
 from app.schemas.job import JobStatus
 
-class Job(BaseModelDB):
+class Jobs(BaseModelDB):
     __tablename__ = "jobs"
     title = Column(String, nullable=False)
     department = Column(String, nullable=False)
@@ -25,4 +25,4 @@ class Job(BaseModelDB):
     skills = Column(JSONB, default=list)
     scoring_criteria = Column(JSONB, nullable=False, default=list)
 
-    candidates = relationship("Candidate", back_populates="job", cascade="all, delete-orphan")
+    candidates = relationship("Candidates", back_populates="job", cascade="all, delete-orphan")

@@ -1,13 +1,16 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Annotated
+from uuid import UUID
 
 from app.core.database import get_db
 from app.api.dependencies import requires_superadmin
 from app.schemas.candidate import (
     CandidateResponse,
+    EvaluationListFilters,
+    EvaluationScopeFilters,
     PaginatedCandidatesResponse,
-    DateRangeFilter,
-    JobScopeFilter,
+    RetryFailedEvaluationsResponse,
 )
 from app.services import candidate
 
@@ -20,17 +23,14 @@ router = APIRouter(tags=["evaluations"])
     dependencies=[Depends(requires_superadmin)],
 )
 def get_evaluations(
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=200),
-    date_range: DateRangeFilter = Query(DateRangeFilter.TODAY),
-    job_scope: JobScopeFilter = Query(JobScopeFilter.OPEN),
+    filters: Annotated[EvaluationListFilters, Query()],
     db: Session = Depends(get_db),
 ):
     """
     Paginated candidate list with evaluation status, for the evaluation
     monitoring page. Accessible only to SUPERADMIN.
     """
-    return candidate.get_evaluation_overview(db, page, size, date_range, job_scope)
+    return candidate.get_evaluation_overview(db, filters.page, filters.size, filters.date_range, filters.job_scope)
 
 
 @router.post(
@@ -39,7 +39,7 @@ def get_evaluations(
     dependencies=[Depends(requires_superadmin)],
 )
 def retry_evaluation(
-    candidate_id: str,
+    candidate_id: UUID,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
@@ -52,17 +52,17 @@ def retry_evaluation(
 
 @router.post(
     "/retry-failed",
+    response_model=RetryFailedEvaluationsResponse,
     dependencies=[Depends(requires_superadmin)],
 )
 def retry_all_failed(
     background_tasks: BackgroundTasks,
-    date_range: DateRangeFilter = Query(DateRangeFilter.TODAY),
-    job_scope: JobScopeFilter = Query(JobScopeFilter.OPEN),
+    filters: Annotated[EvaluationScopeFilters, Query()],
     db: Session = Depends(get_db),
 ):
     """
     Re-queue the AI evaluation for every FAILED candidate matching the given
     filters (mirrors the filters applied on the evaluation page).
     """
-    count = candidate.retry_all_failed_evaluations(db, background_tasks, date_range, job_scope)
+    count = candidate.retry_all_failed_evaluations(db, background_tasks, filters.date_range, filters.job_scope)
     return {"queued": count}

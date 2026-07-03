@@ -35,7 +35,7 @@ export default function CandidatesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Sorting State
-  const [sortField, setSortField] = useState<string>("match");
+  const [sortField, setSortField] = useState<string>("match_score");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Pagination State
@@ -264,12 +264,12 @@ export default function CandidatesPage() {
         c.experience,
         c.location,
         c.education,
-        c.match,
+        c.match_score,
         c.tier,
         Array.isArray(c.skills) ? c.skills.join(", ") : "",
         c.stage,
-        c.appliedDate,
-        (Array.isArray(c.scores) ? c.scores : []).map((s: any) => `${s.criteria}: ${s.score}/${s.weight}`).join("; ")
+        c.applied_date,
+        (c.evaluation?.scores || []).map((s: any) => `${s.criteria}: ${s.score}/${s.weight}`).join("; ")
       ].map(escapeCSV).join(","));
 
       const csvContent = [headers.join(","), ...rows].join("\n");
@@ -545,8 +545,8 @@ export default function CandidatesPage() {
                   <th className="px-3 py-2.5 text-left font-medium select-none">
                     Expected Salary
                   </th>
-                  <th onClick={() => handleSort("match")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
-                    Match{renderSortIcon("match")}
+                  <th onClick={() => handleSort("match_score")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
+                    Match{renderSortIcon("match_score")}
                   </th>
                   <th onClick={() => handleSort("experience")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
                     Exp{renderSortIcon("experience")}
@@ -554,14 +554,14 @@ export default function CandidatesPage() {
                   <th onClick={() => handleSort("stage")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
                     Stage{renderSortIcon("stage")}
                   </th>
-                  <th onClick={() => handleSort("appliedDate")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
-                    Applied{renderSortIcon("appliedDate")}
+                  <th onClick={() => handleSort("applied_date")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
+                    Applied{renderSortIcon("applied_date")}
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {candidates.map((c) => {
-                  const job = jobs.find((j) => j.id === c.jobId);
+                  const job = jobs.find((j) => j.id === c.job_id);
                   return (
                     <tr
                       key={c.id}
@@ -585,12 +585,12 @@ export default function CandidatesPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">{c.salaryExpectation}</td>
-                      <td className="px-3 py-2.5"><div className="flex items-center gap-2"><MatchScore score={c.match} /><MatchBadge tier={c.tier} /></div></td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{c.salary_expectation}</td>
+                      <td className="px-3 py-2.5"><div className="flex items-center gap-2"><MatchScore score={c.match_score} /><MatchBadge tier={c.tier} /></div></td>
                       <td className="px-3 py-2.5 tabular-nums">{c.experience}y</td>
                       <td className="px-3 py-2.5"><StageChip stage={c.stage} /></td>
                       <td className="px-3 py-2.5 text-muted-foreground">
-                        {new Date(c.appliedDate).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                        {new Date(c.applied_date).toLocaleDateString(undefined, { dateStyle: "medium" })}
                       </td>
                     </tr>
                   );

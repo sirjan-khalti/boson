@@ -1,9 +1,10 @@
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Enum as SAEnum
+from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import BaseModelDB
 from app.schemas.activity_log import ActionType
 
-class ActivityLog(BaseModelDB):
+class ActivityLogs(BaseModelDB):
     __tablename__ = "activity_logs"
     timestamp = Column(DateTime, default=datetime.now, index=True)
     action_type = Column(
@@ -14,5 +15,5 @@ class ActivityLog(BaseModelDB):
     description = Column(String, nullable=False)
     user_name = Column(String, nullable=False)  # Name of recruiter or "System (Applicant)"
     user_email = Column(String, nullable=True)  # Email of recruiter or None
-    job_id = Column(String, nullable=True, index=True)
-    candidate_id = Column(String, nullable=True)
+    job_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    candidate_id = Column(UUID(as_uuid=True), nullable=True)

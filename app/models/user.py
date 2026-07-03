@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Enum as SAEnum
 from app.core.database import BaseModelDB
 from app.schemas.user import Role
 
-class User(BaseModelDB):
+class Users(BaseModelDB):
     __tablename__ = "users"
 
     name = Column(String, nullable=False)

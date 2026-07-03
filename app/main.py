@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
+from app.core.constants import CV_UPLOAD_DIR
 from app.core.exceptions import ServiceError
 from app.core.logger import logger
 from app.api.routes.candidates import router as candidates_router
@@ -23,7 +24,7 @@ async def lifespan(app: FastAPI):
     yield
 
 # Ensure static directories exist before mounting
-os.makedirs("static/cvs", exist_ok=True)
+os.makedirs(CV_UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(title="Khalti Careers ATS API", lifespan=lifespan)
 app.state.limiter = limiter

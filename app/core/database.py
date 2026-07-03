@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, Column, String, DateTime
+from sqlalchemy import create_engine, Column, DateTime
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 
@@ -21,7 +22,7 @@ Base = declarative_base()
 class BaseModelDB(Base):
     __abstract__ = True
 
-    id = Column(String, primary_key=True, default=generate_uuid)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=generate_uuid)
     created_on = Column(DateTime, default=datetime.now)
     updated_on = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

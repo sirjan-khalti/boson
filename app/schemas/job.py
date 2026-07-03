@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import List, Optional
 from datetime import date, datetime
 from enum import Enum
+from uuid import UUID
 
 from app.core.constants import DEFAULT_SCORING_CRITERIA
 
@@ -36,11 +37,11 @@ class JobCreate(JobBase):
         return self
 
 class JobResponse(JobBase):
-    id: str
+    id: UUID
     status: JobStatus
     closed_date: Optional[date] = None
     applicants: int
-    postedDate: datetime
+    posted_date: datetime
     scoring_criteria: List[ScoringCriterionSchema] = []
 
     model_config = ConfigDict(from_attributes=True)

@@ -1,6 +1,7 @@
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.orm import Session
-from app.models.activity_log import ActivityLog
+from app.models.activity_log import ActivityLogs
 from app.schemas.activity_log import ActionType
 
 def log_activity(
@@ -8,14 +9,14 @@ def log_activity(
     action_type: ActionType,
     description: str,
     user_name: str,
-    user_email: str = None,
-    job_id: str = None,
-    candidate_id: str = None
+    user_email: Optional[str] = None,
+    job_id: Optional[UUID] = None,
+    candidate_id: Optional[UUID] = None
 ):
     """
     Utility function to log recruiter and system activities in the database.
     """
-    log_entry = ActivityLog(
+    log_entry = ActivityLogs(
         action_type=action_type,
         description=description,
         user_name=user_name,
@@ -36,22 +37,22 @@ def get_paginated(
     """
     Fetch activity logs sorted by timestamp descending, paginated and filtered.
     """
-    query = db.query(ActivityLog)
+    query = db.query(ActivityLogs)
 
     if action_type:
-        query = query.filter(ActivityLog.action_type == action_type)
+        query = query.filter(ActivityLogs.action_type == action_type)
 
     if search:
         search_filter = f"%{search}%"
         query = query.filter(
-            (ActivityLog.description.ilike(search_filter)) |
-            (ActivityLog.user_name.ilike(search_filter)) |
-            (ActivityLog.user_email.ilike(search_filter))
+            (ActivityLogs.description.ilike(search_filter)) |
+            (ActivityLogs.user_name.ilike(search_filter)) |
+            (ActivityLogs.user_email.ilike(search_filter))
         )
 
     total = query.count()
     offset = (page - 1) * size
-    logs = query.order_by(ActivityLog.timestamp.desc()).offset(offset).limit(size).all()
+    logs = query.order_by(ActivityLogs.timestamp.desc()).offset(offset).limit(size).all()
     pages = (total + size - 1) // size if total > 0 else 0
 
     return {

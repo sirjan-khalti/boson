@@ -1022,7 +1022,7 @@ export default function ApplyPage() {
         achievements: cleanAchievements,
         awards: cleanAwards,
         custom_fields: builtCustomFields,
-        jobId: job.id,
+        job_id: job.id,
       };
 
       try {
@@ -1127,7 +1127,7 @@ export default function ApplyPage() {
                     <p className="max-w-sm px-4 text-center text-sm text-muted-foreground">
                       We couldn't load the verification widget (this can happen on restricted
                       networks). Resume auto-fill isn't available right now, but you can still
-                      fill out the application manually below.
+                      fill out the application below.
                     </p>
                   ) : (
                     <div id="recaptcha-checkbox-container" className="min-h-[78px] flex items-center justify-center"></div>

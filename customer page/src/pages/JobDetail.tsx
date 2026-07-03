@@ -101,7 +101,7 @@ export default function JobDetail() {
             <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" /> {job.location}</span>
             {job.experience && <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" /> {job.experience}</span>}
             {job.salaryRange && <span className="inline-flex items-center gap-1.5"><Wallet className="h-4 w-4" /> {job.salaryRange}</span>}
-            <span className="inline-flex items-center gap-1.5"><CalendarClock className="h-4 w-4" /> Posted {job.postedAt || new Date(job.postedDate || Date.now()).toLocaleDateString()}</span>
+            <span className="inline-flex items-center gap-1.5"><CalendarClock className="h-4 w-4" /> Posted {job.postedAt || new Date(job.posted_date || Date.now()).toLocaleDateString()}</span>
           </div>
         </div>
       </section>

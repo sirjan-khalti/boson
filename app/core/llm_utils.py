@@ -3,7 +3,7 @@ import re
 
 import groq
 
-from app.core.exceptions import ServiceUnavailableError
+from app.core.exceptions import AIServiceUnavailableError
 from app.core.logger import logger
 
 
@@ -31,28 +31,20 @@ async def call_groq_json(client: groq.AsyncGroq, *, log_context: str, **create_k
         response = await client.chat.completions.create(**create_kwargs)
     except groq.RateLimitError as e:
         logger.error(f"{log_context}: Groq rate limit exceeded: {e}")
-        raise ServiceUnavailableError(
-            "The AI service is receiving too many requests. Please try again in a moment."
-        )
+        raise AIServiceUnavailableError()
     except groq.APIConnectionError as e:
         logger.error(f"{log_context}: Could not reach Groq (network/timeout): {e}")
-        raise ServiceUnavailableError(
-            "The AI service is temporarily unreachable. Please try again in a moment."
-        )
+        raise AIServiceUnavailableError()
     except groq.APIStatusError as e:
         logger.error(f"{log_context}: Groq API returned an error (status {e.status_code}): {e}")
-        raise ServiceUnavailableError(
-            "The AI service is temporarily unavailable. Please try again in a moment."
-        )
+        raise AIServiceUnavailableError()
     except Exception as e:
         logger.error(f"{log_context}: Unexpected error calling Groq: {e}", exc_info=True)
-        raise ServiceUnavailableError(
-            "The AI service is temporarily unavailable. Please try again in a moment."
-        )
+        raise AIServiceUnavailableError()
 
     content = clean_llm_response(response.choices[0].message.content or "")
     try:
         return json.loads(content)
     except json.JSONDecodeError as e:
         logger.error(f"{log_context}: Groq returned malformed JSON: {e}")
-        raise ServiceUnavailableError("The AI service returned an unexpected response. Please try again.")
+        raise AIServiceUnavailableError()

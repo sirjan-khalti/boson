@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import Users
+from app.schemas.common import StatusResponse
 from app.schemas.user import UserResponse, Token, ChangePasswordInput
 from app.api.dependencies import get_current_user
 from app.services import auth
@@ -27,7 +28,7 @@ def login(
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
-        secure=False,  # Let's keep secure=False for local dev environment
+        secure=False, 
     )
 
     return {
@@ -36,20 +37,20 @@ def login(
         "user": user
     }
 
-@router.post("/logout")
+@router.post("/logout", response_model=StatusResponse)
 def logout(response: Response):
     response.delete_cookie(key="access_token")
     return {"status": "success"}
 
 @router.get("/me", response_model=UserResponse)
-def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user: Users = Depends(get_current_user)):
     return current_user
 
-@router.post("/change-password")
+@router.post("/change-password", response_model=StatusResponse)
 def change_password(
     data: ChangePasswordInput,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Users = Depends(get_current_user)
 ):
     auth.change_password(db, current_user, data.old_password, data.new_password)
     return {"status": "success"}

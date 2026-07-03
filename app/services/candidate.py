@@ -3,12 +3,12 @@ import os
 import tempfile
 from datetime import datetime, time, timedelta
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import BackgroundTasks, UploadFile
 from sqlalchemy import String
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.core.config import settings
 from app.core.constants import (
     CANDIDATE_ALLOWED_SORT_FIELDS,
     CANDIDATE_SOURCE_CAREERS_PAGE,
@@ -19,11 +19,22 @@ from app.core.constants import (
     MATCH_SCORE_STRONG_FIT_THRESHOLD,
 )
 from app.core.database import SessionLocal
-from app.core.exceptions import ServiceError
+from app.core.exceptions import (
+    CandidateNotFoundError,
+    InvalidCandidateJsonError,
+    InvalidDateFormatError,
+    JobNotFoundError,
+    JobNotFoundForCandidateError,
+    OnlyPdfSupportedError,
+    ResumeParsingFailedError,
+)
 from app.core.logger import logger
-from app.models.candidate import Candidate
-from app.models.job import Job
-from app.models.user import User
+from app.models.candidate import Candidates
+from app.models.candidate_evaluation import CandidateEvaluations
+from app.models.candidate_note import CandidateNotes
+from app.models.candidate_stage_history import CandidateStageHistory
+from app.models.job import Jobs
+from app.models.user import Users
 from app.schemas.activity_log import ActionType
 from app.schemas.candidate import CandidateCreate, CandidateStage, DateRangeFilter, EvaluationStatus, JobScopeFilter, Tier
 from app.schemas.job import JobStatus
@@ -32,16 +43,28 @@ from app.services.cv_store import save_cv
 from app.services.evaluator import evaluate_candidate
 from app.services.parser import parse_candidate_cv
 
+_CANDIDATE_LOAD_OPTIONS = (
+    selectinload(Candidates.notes).selectinload(CandidateNotes.author),
+    selectinload(Candidates.stage_history).selectinload(CandidateStageHistory.changed_by),
+    selectinload(Candidates.evaluation),
+)
 
-def _attach_cv_url(candidate: Candidate) -> Candidate:
-    if candidate.cv_filelink and not candidate.cvUrl:
-        candidate.cvUrl = f"{settings.BASE_URL}/static/cvs/{candidate.cv_filelink}"
-    return candidate
+# Every post-application funnel stage, mapped to its counts key in
+# get_recruitment_report's aggregate_funnel_counts.
+_FUNNEL_STAGE_KEYS = {
+    CandidateStage.SCREENING: "screened",
+    CandidateStage.SHORTLISTED: "shortlisted",
+    CandidateStage.INTERVIEW: "interviewed",
+    CandidateStage.FINAL_REVIEW: "finalReview",
+    CandidateStage.OFFER: "offer",
+    CandidateStage.HIRED: "hired",
+    CandidateStage.REJECTED: "rejected",
+}
 
 
 async def parse_resume(file: UploadFile) -> dict:
     if not file.filename.lower().endswith(".pdf"):
-        raise ServiceError(400, "Only PDF files are supported.")
+        raise OnlyPdfSupportedError()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(await file.read())
@@ -54,23 +77,45 @@ async def parse_resume(file: UploadFile) -> dict:
         # there's no need to treat it as a hard error. The applicant can just
         # fill the form manually.
         logger.warning(f"Resume parsing failed, falling back to manual entry: {e}")
-        raise ServiceError(422, "Please enter your details manually.")
+        raise ResumeParsingFailedError()
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
 
-async def run_background_evaluation(candidate_id: str, job_id: str, candidate_data: dict) -> None:
+def _upsert_evaluation(db: Session, candidate_id: UUID) -> CandidateEvaluations:
+    evaluation = db.query(CandidateEvaluations).filter(CandidateEvaluations.candidate_id == candidate_id).first()
+    if not evaluation:
+        evaluation = CandidateEvaluations(candidate_id=candidate_id)
+        db.add(evaluation)
+    return evaluation
+
+
+def _set_evaluation_result(
+    evaluation: CandidateEvaluations,
+    summary: Optional[str],
+    scores: list,
+    strengths: list,
+    weaknesses: list,
+) -> None:
+    evaluation.summary = summary
+    evaluation.scores = scores
+    evaluation.strengths = strengths
+    evaluation.weaknesses = weaknesses
+    evaluation.evaluated_at = datetime.now()
+
+
+async def run_background_evaluation(candidate_id: UUID, job_id: UUID, candidate_data: dict) -> None:
     db = SessionLocal()
     try:
-        job = db.query(Job).filter(Job.id == job_id).first()
+        job = db.query(Jobs).filter(Jobs.id == job_id).first()
         if not job:
             logger.error(
                 f"Job {job_id} not found for background evaluation of candidate {candidate_id}"
             )
             return
 
-        candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+        candidate = db.query(Candidates).filter(Candidates.id == candidate_id).first()
         if not candidate:
             logger.error(
                 f"Candidate {candidate_id} not found for background evaluation"
@@ -94,25 +139,29 @@ async def run_background_evaluation(candidate_id: str, job_id: str, candidate_da
         elif match_score >= MATCH_SCORE_MODERATE_FIT_THRESHOLD:
             tier = Tier.MODERATE_FIT
 
-        candidate.match = match_score
+        candidate.match_score = match_score
         candidate.tier = tier
         candidate.evaluation_status = EvaluationStatus.SUCCESS
-        candidate.summary = eval_result.get("summary", "")
-        candidate.scores = eval_result.get("criteria_scores", [])
-        candidate.strengths = eval_result.get("strengths", [])
-        candidate.weaknesses = eval_result.get("weaknesses", [])
+
+        evaluation = _upsert_evaluation(db, candidate.id)
+        _set_evaluation_result(
+            evaluation,
+            summary=eval_result.get("summary", ""),
+            scores=eval_result.get("criteria_scores", []),
+            strengths=eval_result.get("strengths", []),
+            weaknesses=eval_result.get("weaknesses", []),
+        )
 
         log_activity(
             db=db,
             action_type=ActionType.CANDIDATE_EVALUATED,
             description=f"System evaluated candidate {candidate.name} (Match: {match_score}%)",
             user_name="System (Evaluator)",
-            user_email=candidate.email,
+            user_email=(candidate.personal_info or {}).get("email", ""),
             job_id=job.id,
             candidate_id=candidate.id,
         )
         db.commit()
-        db.flush()
         logger.info(
             f"Background evaluation successfully completed for candidate {candidate.name}"
         )
@@ -125,15 +174,14 @@ async def run_background_evaluation(candidate_id: str, job_id: str, candidate_da
         # silently stuck in PENDING forever. Leave scoring fields blank
         # rather than fabricating a tier/summary.
         try:
-            candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+            candidate = db.query(Candidates).filter(Candidates.id == candidate_id).first()
             if candidate:
                 candidate.evaluation_status = EvaluationStatus.FAILED
-                candidate.match = 0
+                candidate.match_score = 0
                 candidate.tier = None
-                candidate.summary = None
-                candidate.scores = []
-                candidate.strengths = []
-                candidate.weaknesses = []
+
+                evaluation = _upsert_evaluation(db, candidate.id)
+                _set_evaluation_result(evaluation, summary=None, scores=[], strengths=[], weaknesses=[])
                 db.commit()
         except Exception:
             db.rollback()
@@ -147,81 +195,40 @@ async def submit_application(
     candidate_json: str,
     file: Optional[UploadFile],
     background_tasks: BackgroundTasks,
-    submitted_by: Optional[User] = None,
-) -> Candidate:
+    submitted_by: Optional[Users] = None,
+) -> Candidates:
     try:
         cand_dict = json.loads(candidate_json)
         cand_obj = CandidateCreate(**cand_dict)
     except Exception as e:
-        raise ServiceError(400, f"Invalid candidate JSON: {str(e)}")
+        logger.warning(f"Invalid candidate JSON on submission: {e}")
+        raise InvalidCandidateJsonError()
 
-    job = db.query(Job).filter(Job.id == cand_obj.jobId).first()
+    job = db.query(Jobs).filter(Jobs.id == cand_obj.job_id).first()
     if not job:
-        raise ServiceError(404, "Job not found")
+        raise JobNotFoundError()
 
     cand_data = cand_obj.model_dump()
 
     cv_filename = None
     if file:
         if not file.filename.lower().endswith(".pdf"):
-            raise ServiceError(400, "Only PDF files are allowed.")
+            raise OnlyPdfSupportedError()
         cv_filename = save_cv(file)
-
-    cv_url = None
-    if cv_filename:
-        cv_url = f"{settings.BASE_URL}/static/cvs/{cv_filename}"
 
     # Extract nested fields
     personal = cand_data.get("personal_info", {}) or {}
     prof_summary = cand_data.get("professional_summary", {}) or {}
     exp_list = cand_data.get("experience", []) or []
     edu_list = cand_data.get("education", []) or []
-    cert_list = cand_data.get("certifications", []) or []
-    lang_list = cand_data.get("languages", []) or []
 
-    # Map flat compat fields
     flat_name = (
         personal.get("full_name")
         or f"{personal.get('first_name', '')} {personal.get('last_name', '')}".strip()
         or "Unknown"
     )
     flat_email = personal.get("email") or ""
-    flat_phone = personal.get("phone") or ""
     flat_experience = float(prof_summary.get("total_experience_years") or 0.0)
-    flat_education = edu_list[0].get("degree", "") if edu_list else ""
-    flat_location = f"{personal.get('address', {}).get('city', '')}, {personal.get('address', {}).get('country', '')}".strip(
-        ", "
-    )
-    flat_title = exp_list[0].get("job_title", "") if exp_list else ""
-    flat_company = exp_list[0].get("company_name", "") if exp_list else ""
-
-    # Map legacy nested collections for recruiter view compatibility
-    legacy_edu = [
-        {
-            "degree": item.get("degree", ""),
-            "school": item.get("institution_name", ""),
-            "start": item.get("start_date", "")[:4] if item.get("start_date") else "",
-            "end": item.get("end_date", "")[:4] if item.get("end_date") else "",
-        }
-        for item in edu_list
-    ]
-    legacy_work = [
-        {
-            "role": item.get("job_title", ""),
-            "company": item.get("company_name", ""),
-            "start": item.get("start_date", "")[:4] if item.get("start_date") else "",
-            "end": item.get("end_date", "")[:4] if item.get("end_date") else "Present",
-            "description": item.get("work_summary", ""),
-        }
-        for item in exp_list
-    ]
-    legacy_links = personal.get("profiles", {}) or {}
-    legacy_certs = [item.get("name") for item in cert_list if item.get("name")]
-    legacy_langs = [
-        {"name": item.get("language"), "level": item.get("proficiency")}
-        for item in lang_list
-        if item.get("language")
-    ]
 
     meta_salary = (
         prof_summary.get("expected_salary")
@@ -231,57 +238,48 @@ async def submit_application(
     meta_notice = f"{prof_summary.get('notice_period_days', 0)} days"
     source = CANDIDATE_SOURCE_REFERRAL if submitted_by else CANDIDATE_SOURCE_CAREERS_PAGE
 
-    db_candidate = Candidate(
-        jobId=cand_obj.jobId,
+    db_candidate = Candidates(
+        job_id=cand_obj.job_id,
         name=flat_name,
-        email=flat_email,
-        phone=flat_phone,
         experience=flat_experience,
-        education=flat_education,
-        location=flat_location,
-        title=flat_title,
-        company=flat_company,
-        educationHistory=legacy_edu,
         skills=cand_data.get("skills", []),
-        languages=legacy_langs,
-        certifications=legacy_certs,
         achievements=cand_data.get("achievements", []),
-        links=legacy_links,
-        workHistory=legacy_work,
-        salaryExpectation=meta_salary,
-        noticePeriod=meta_notice,
+        salary_expectation=meta_salary,
+        notice_period=meta_notice,
         source=source,
         personal_info=personal,
         professional_summary=prof_summary,
         experience_history=exp_list,
         education_history=edu_list,
         projects=cand_data.get("projects", []),
-        certifications_history=cert_list,
-        languages_history=lang_list,
+        certifications_history=cand_data.get("certifications", []),
+        languages_history=cand_data.get("languages", []),
         awards=cand_data.get("awards", []),
         publications=cand_data.get("publications", []),
         candidate_preferences=cand_data.get("candidate_preferences", {}),
         custom_fields=cand_data.get("custom_fields", {}),
-        match=0,
+        match_score=0,
         tier=Tier.PENDING,
         evaluation_status=EvaluationStatus.PENDING,
-        summary="Evaluating candidate profile...",
-        scores=[],
-        strengths=[],
-        weaknesses=[],
-        stage="Applied",
-        pastStages=["Applied"],
+        stage=CandidateStage.APPLIED,
         cv_filelink=cv_filename,
-        cvUrl=cv_url,
-        appliedDate=datetime.now(),
+        applied_date=datetime.now(),
     )
 
     db.add(db_candidate)
 
     # Atomic increment of applicant count (H9)
-    db.query(Job).filter(Job.id == job.id).update({Job.applicants: Job.applicants + 1})
+    db.query(Jobs).filter(Jobs.id == job.id).update({Jobs.applicants: Jobs.applicants + 1})
 
     db.flush()
+
+    # Seed stage history — system-generated, no acting user, so the actor
+    # fields stay null.
+    db.add(CandidateStageHistory(
+        candidate_id=db_candidate.id,
+        stage=CandidateStage.APPLIED,
+        changed_at=db_candidate.applied_date,
+    ))
 
     background_tasks.add_task(
         run_background_evaluation,
@@ -306,7 +304,7 @@ async def submit_application(
             action_type=ActionType.CANDIDATE_APPLIED,
             description=f"Candidate {db_candidate.name} applied for job '{job.title}'",
             user_name="System (Applicant)",
-            user_email=db_candidate.email,
+            user_email=flat_email,
             job_id=job.id,
             candidate_id=db_candidate.id,
         )
@@ -324,7 +322,7 @@ def get_filter_options(db: Session) -> dict:
     sources is genuinely dynamic data, since new intake channels can appear
     without a code change.
     """
-    source_rows = db.query(Candidate.source).distinct().all()
+    source_rows = db.query(Candidates.source).distinct().all()
     return {
         "stages": [s.value for s in CandidateStage],
         "tiers": [t.value for t in Tier if t != Tier.PENDING],
@@ -336,7 +334,7 @@ def get_paginated(
     db: Session,
     page: int,
     size: int,
-    jobId: Optional[str],
+    jobId: Optional[UUID],
     search: Optional[str],
     minScore: Optional[int],
     minExp: Optional[float],
@@ -346,31 +344,31 @@ def get_paginated(
     sort_by: str,
     sort_order: str,
 ) -> dict:
-    query = db.query(Candidate)
+    query = db.query(Candidates).options(*_CANDIDATE_LOAD_OPTIONS)
 
     if jobId:
-        query = query.filter(Candidate.jobId == jobId)
+        query = query.filter(Candidates.job_id == jobId)
     else:
-        query = query.join(Job).filter(Job.status == JobStatus.ACTIVE)
+        query = query.join(Jobs).filter(Jobs.status == JobStatus.ACTIVE)
 
     if search:
         search_filter = f"%{search}%"
         query = query.filter(
-            (Candidate.name.ilike(search_filter))
-            | (Candidate.skills.cast(String).ilike(search_filter))
+            (Candidates.name.ilike(search_filter))
+            | (Candidates.skills.cast(String).ilike(search_filter))
         )
 
     if minScore is not None and minScore > 0:
-        query = query.filter(Candidate.match >= minScore)
+        query = query.filter(Candidates.match_score >= minScore)
 
     if minExp is not None and minExp > 0:
-        query = query.filter(Candidate.experience >= minExp)
+        query = query.filter(Candidates.experience >= minExp)
 
     if source:
-        query = query.filter(Candidate.source == source)
+        query = query.filter(Candidates.source == source)
 
     if stage and stage != "All":
-        query = query.filter(Candidate.stage == stage)
+        query = query.filter(Candidates.stage == stage)
 
     if tiers:
         actual_tiers = []
@@ -382,16 +380,13 @@ def get_paginated(
         valid_tiers = {t.value for t in Tier}
         actual_tiers = [t for t in actual_tiers if t in valid_tiers]
         if actual_tiers:
-            query = query.filter(Candidate.tier.in_(actual_tiers))
+            query = query.filter(Candidates.tier.in_(actual_tiers))
 
     # Sorting
     if sort_by not in CANDIDATE_ALLOWED_SORT_FIELDS:
-        sort_by = "match"
+        sort_by = "match_score"
 
-    if sort_by == "appliedDate":
-        sort_column = Candidate.appliedDate
-    else:
-        sort_column = getattr(Candidate, sort_by, Candidate.match)
+    sort_column = getattr(Candidates, sort_by, Candidates.match_score)
 
     if sort_order == "desc":
         query = query.order_by(sort_column.desc())
@@ -402,9 +397,6 @@ def get_paginated(
     offset = (page - 1) * size
     candidates = query.offset(offset).limit(size).all()
     pages = (total + size - 1) // size if total > 0 else 0
-
-    for c in candidates:
-        _attach_cv_url(c)
 
     return {
         "items": candidates,
@@ -420,51 +412,36 @@ def get_recruitment_report(db: Session, start: str, end: str) -> dict:
         start_dt = datetime.combine(datetime.strptime(start, "%Y-%m-%d"), time.min)
         end_dt = datetime.combine(datetime.strptime(end, "%Y-%m-%d"), time.max)
     except Exception:
-        raise ServiceError(400, "Invalid date format. Expected YYYY-MM-DD.")
+        raise InvalidDateFormatError()
 
     # 1. Filter jobs posted within the date range
-    filtered_jobs = db.query(Job).filter(Job.postedDate >= start_dt, Job.postedDate <= end_dt).all()
+    filtered_jobs = db.query(Jobs).filter(Jobs.posted_date >= start_dt, Jobs.posted_date <= end_dt).all()
     job_ids = [j.id for j in filtered_jobs]
 
-    # 2. Filter candidates whose appliedDate is in the range, and who belong to the filtered jobs
+    # 2. Filter candidates whose applied_date is in the range, and who belong to the filtered jobs
     if job_ids:
-        filtered_candidates = db.query(Candidate).filter(
-            Candidate.jobId.in_(job_ids),
-            Candidate.appliedDate >= start_dt,
-            Candidate.appliedDate <= end_dt
-        ).all()
+        filtered_candidates = (
+            db.query(Candidates)
+            .options(selectinload(Candidates.stage_history))
+            .filter(
+                Candidates.job_id.in_(job_ids),
+                Candidates.applied_date >= start_dt,
+                Candidates.applied_date <= end_dt,
+            )
+            .all()
+        )
     else:
         filtered_candidates = []
 
     # Helper function to aggregate funnel counts
     def aggregate_funnel_counts(candidates_list):
-        counts = {
-            "applied": 0,
-            "screened": 0,
-            "shortlisted": 0,
-            "interviewed": 0,
-            "finalReview": 0,
-            "offer": 0,
-            "hired": 0,
-            "rejected": 0,
-        }
+        counts = {"applied": 0, **{key: 0 for key in _FUNNEL_STAGE_KEYS.values()}}
         for c in candidates_list:
             counts["applied"] += 1
-            past_stages = c.pastStages or []
-            if "Screening" in past_stages or c.stage == "Screening":
-                counts["screened"] += 1
-            if "Shortlisted" in past_stages or c.stage == "Shortlisted":
-                counts["shortlisted"] += 1
-            if "Interview" in past_stages or c.stage == "Interview" or c.stage == "Interviewing":
-                counts["interviewed"] += 1
-            if "Final Review" in past_stages or c.stage == "Final Review":
-                counts["finalReview"] += 1
-            if "Offer" in past_stages or c.stage == "Offer":
-                counts["offer"] += 1
-            if "Hired" in past_stages or c.stage == "Hired":
-                counts["hired"] += 1
-            if "Rejected" in past_stages or c.stage == "Rejected":
-                counts["rejected"] += 1
+            reached = {h.stage for h in c.stage_history}
+            for stage, key in _FUNNEL_STAGE_KEYS.items():
+                if stage in reached:
+                    counts[key] += 1
         return counts
 
     # Compute overall cumulative funnel counts for filtered candidates
@@ -474,7 +451,7 @@ def get_recruitment_report(db: Session, start: str, end: str) -> dict:
     # Map each job to its funnel breakdown
     job_breakdown = []
     for job in filtered_jobs:
-        job_candidates = [c for c in filtered_candidates if c.jobId == job.id]
+        job_candidates = [c for c in filtered_candidates if c.job_id == job.id]
         job_stats = aggregate_funnel_counts(job_candidates)
 
         job_breakdown.append({
@@ -482,7 +459,7 @@ def get_recruitment_report(db: Session, start: str, end: str) -> dict:
             "title": job.title,
             "department": job.department,
             "status": job.status,
-            "postedDate": job.postedDate.isoformat() if job.postedDate else "",
+            "postedDate": job.posted_date.isoformat() if job.posted_date else "",
             "applied": job_stats["applied"],
             "screened": job_stats["screened"],
             "shortlisted": job_stats["shortlisted"],
@@ -499,27 +476,44 @@ def get_recruitment_report(db: Session, start: str, end: str) -> dict:
     }
 
 
-def get_by_id(db: Session, candidate_id: str) -> Candidate:
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def get_by_id(db: Session, candidate_id: UUID) -> Candidates:
+    candidate = (
+        db.query(Candidates)
+        .options(*_CANDIDATE_LOAD_OPTIONS)
+        .filter(Candidates.id == candidate_id)
+        .first()
+    )
     if not candidate:
-        raise ServiceError(404, "Candidate not found")
-    return _attach_cv_url(candidate)
+        raise CandidateNotFoundError()
+    return candidate
 
 
-def update_stage(db: Session, candidate_id: str, new_stage: str, current_user) -> Candidate:
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def update_stage(db: Session, candidate_id: UUID, new_stage: str, current_user) -> Candidates:
+    candidate = db.query(Candidates).filter(Candidates.id == candidate_id).first()
     if not candidate:
-        raise ServiceError(404, "Candidate not found")
+        raise CandidateNotFoundError()
 
     old_stage = candidate.stage
     candidate.stage = new_stage
 
     if old_stage != candidate.stage:
-        if candidate.pastStages is None:
-            candidate.pastStages = []
-        past = list(candidate.pastStages)
-        past.append(old_stage)
-        candidate.pastStages = past
+        if old_stage == CandidateStage.REJECTED:
+            # Un-rejecting: drop the Rejected entry instead of leaving it
+            # alongside the new stage — moving someone off Rejected
+            # shouldn't leave a permanent mark on their record. Every other
+            # transition (including moving *into* Rejected) appends below,
+            # same as usual.
+            db.query(CandidateStageHistory).filter(
+                CandidateStageHistory.candidate_id == candidate.id,
+                CandidateStageHistory.stage == CandidateStage.REJECTED,
+            ).delete()
+
+        db.add(CandidateStageHistory(
+            candidate_id=candidate.id,
+            stage=candidate.stage,
+            changed_at=datetime.now(),
+            changed_by_user_id=current_user.id,
+        ))
 
     log_activity(
         db=db,
@@ -527,29 +521,25 @@ def update_stage(db: Session, candidate_id: str, new_stage: str, current_user) -
         description=f"Moved candidate {candidate.name} from {old_stage} to {candidate.stage}",
         user_name=current_user.name,
         user_email=current_user.email,
-        job_id=candidate.jobId,
+        job_id=candidate.job_id,
         candidate_id=candidate.id,
     )
 
     db.commit()
-    db.refresh(candidate)
-    return _attach_cv_url(candidate)
+    return get_by_id(db, candidate.id)
 
 
-def add_note(db: Session, candidate_id: str, content: str, current_user) -> Candidate:
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def add_note(db: Session, candidate_id: UUID, content: str, current_user) -> Candidates:
+    candidate = db.query(Candidates).filter(Candidates.id == candidate_id).first()
     if not candidate:
-        raise ServiceError(404, "Candidate not found")
+        raise CandidateNotFoundError()
 
-    new_note = {
-        "author": current_user.email,
-        "date": datetime.now().isoformat()[:10],
-        "content": content,
-    }
-
-    current_notes = list(candidate.notes) if candidate.notes else []
-    current_notes.insert(0, new_note)
-    candidate.notes = current_notes
+    db.add(CandidateNotes(
+        candidate_id=candidate.id,
+        author_user_id=current_user.id,
+        content=content,
+        created_at=datetime.now(),
+    ))
 
     log_activity(
         db=db,
@@ -557,16 +547,15 @@ def add_note(db: Session, candidate_id: str, content: str, current_user) -> Cand
         description=f"Added note to candidate {candidate.name}",
         user_name=current_user.name,
         user_email=current_user.email,
-        job_id=candidate.jobId,
+        job_id=candidate.job_id,
         candidate_id=candidate.id,
     )
 
     db.commit()
-    db.refresh(candidate)
-    return _attach_cv_url(candidate)
+    return get_by_id(db, candidate.id)
 
 
-def _candidate_eval_data(candidate: Candidate) -> dict:
+def _candidate_eval_data(candidate: Candidates) -> dict:
     """Reconstruct the evaluation input dict from a stored Candidate row (used for retries)."""
     return {
         "personal_info": candidate.personal_info or {},
@@ -584,14 +573,14 @@ def _candidate_eval_data(candidate: Candidate) -> dict:
     }
 
 
-def retry_evaluation(db: Session, candidate_id: str, background_tasks: BackgroundTasks) -> Candidate:
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def retry_evaluation(db: Session, candidate_id: UUID, background_tasks: BackgroundTasks) -> Candidates:
+    candidate = db.query(Candidates).filter(Candidates.id == candidate_id).first()
     if not candidate:
-        raise ServiceError(404, "Candidate not found")
+        raise CandidateNotFoundError()
 
-    job = db.query(Job).filter(Job.id == candidate.jobId).first()
+    job = db.query(Jobs).filter(Jobs.id == candidate.job_id).first()
     if not job:
-        raise ServiceError(404, "Job not found for this candidate")
+        raise JobNotFoundForCandidateError()
 
     candidate.evaluation_status = EvaluationStatus.PENDING
     db.commit()
@@ -603,7 +592,7 @@ def retry_evaluation(db: Session, candidate_id: str, background_tasks: Backgroun
         job_id=job.id,
         candidate_data=_candidate_eval_data(candidate),
     )
-    return _attach_cv_url(candidate)
+    return get_by_id(db, candidate.id)
 
 
 def _date_range_start(date_range: DateRangeFilter) -> Optional[datetime]:
@@ -619,14 +608,14 @@ def _date_range_start(date_range: DateRangeFilter) -> Optional[datetime]:
 
 
 def _evaluation_query(db: Session, date_range: DateRangeFilter, job_scope: JobScopeFilter):
-    query = db.query(Candidate).join(Job, Candidate.jobId == Job.id)
+    query = db.query(Candidates).join(Jobs, Candidates.job_id == Jobs.id)
 
     start = _date_range_start(date_range)
     if start is not None:
-        query = query.filter(Candidate.appliedDate >= start)
+        query = query.filter(Candidates.applied_date >= start)
 
     if job_scope == JobScopeFilter.OPEN:
-        query = query.filter(Job.status == JobStatus.ACTIVE)
+        query = query.filter(Jobs.status == JobStatus.ACTIVE)
 
     return query
 
@@ -638,20 +627,17 @@ def get_evaluation_overview(
     date_range: DateRangeFilter = DateRangeFilter.TODAY,
     job_scope: JobScopeFilter = JobScopeFilter.OPEN,
 ) -> dict:
-    query = _evaluation_query(db, date_range, job_scope)
+    query = _evaluation_query(db, date_range, job_scope).options(*_CANDIDATE_LOAD_OPTIONS)
 
     total = query.count()
     offset = (page - 1) * size
     candidates = (
-        query.order_by(Candidate.appliedDate.desc())
+        query.order_by(Candidates.applied_date.desc())
         .offset(offset)
         .limit(size)
         .all()
     )
     pages = (total + size - 1) // size if total > 0 else 0
-
-    for c in candidates:
-        _attach_cv_url(c)
 
     return {
         "items": candidates,
@@ -670,7 +656,7 @@ def retry_all_failed_evaluations(
 ) -> int:
     candidates = (
         _evaluation_query(db, date_range, job_scope)
-        .filter(Candidate.evaluation_status == EvaluationStatus.FAILED)
+        .filter(Candidates.evaluation_status == EvaluationStatus.FAILED)
         .all()
     )
 
@@ -682,7 +668,7 @@ def retry_all_failed_evaluations(
         background_tasks.add_task(
             run_background_evaluation,
             candidate_id=candidate.id,
-            job_id=candidate.jobId,
+            job_id=candidate.job_id,
             candidate_data=_candidate_eval_data(candidate),
         )
 

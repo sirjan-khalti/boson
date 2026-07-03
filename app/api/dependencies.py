@@ -6,7 +6,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.exceptions import ForbiddenError, UnauthorizedError
-from app.models.user import User
+from app.models.user import Users
 from app.schemas.user import Role
 from app.services import user
 
@@ -40,7 +40,7 @@ def get_current_user_optional(
     request: Request,
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
-) -> Optional[User]:
+) -> Optional[Users]:
     """Like get_current_user, but returns None instead of raising when there's
     no (or an invalid) session — for endpoints reachable both anonymously and
     by a logged-in recruiter, where the caller's identity changes behavior
@@ -50,19 +50,19 @@ def get_current_user_optional(
     except UnauthorizedError:
         return None
 
-def requires_recruiter(current_user: User = Depends(get_current_user)) -> User:
+def requires_recruiter(current_user: Users = Depends(get_current_user)) -> Users:
     if current_user.role not in (Role.SUPERADMIN, Role.ADMIN, Role.RECRUITER):
         raise ForbiddenError()
     return current_user
 
 
-def requires_admin(current_user: User = Depends(get_current_user)) -> User:
+def requires_admin(current_user: Users = Depends(get_current_user)) -> Users:
     if current_user.role not in (Role.SUPERADMIN, Role.ADMIN):
         raise ForbiddenError()
     return current_user
 
 
-def requires_superadmin(current_user: User = Depends(get_current_user)) -> User:
+def requires_superadmin(current_user: Users = Depends(get_current_user)) -> Users:
     if current_user.role != Role.SUPERADMIN:
         raise ForbiddenError()
     return current_user

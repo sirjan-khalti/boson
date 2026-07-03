@@ -37,49 +37,49 @@ function buildCv(c: Candidate, jobTitle?: string) {
     `${c.title} · ${c.location} · ${c.email} · ${c.phone}`,
     "",
     "SUMMARY",
-    c.summary,
+    c.evaluation?.summary ?? "",
     "",
     "APPLIED FOR",
     jobTitle ?? "—",
     "",
     "EXPERIENCE",
-    ...c.workHistory.map((w) => `${w.role} — ${w.company} (${w.start} — ${w.end})\n  ${w.description ?? ""}`),
+    ...(c.experience_history || []).map((w) => `${w.job_title} — ${w.company_name} (${w.start_date} — ${w.currently_working ? "Present" : w.end_date})\n  ${w.work_summary ?? ""}`),
     "",
     "EDUCATION",
-    ...c.educationHistory.map((e) => `${e.degree}, ${e.school} (${e.start} — ${e.end})`),
+    ...(c.education_history || []).map((e) => `${e.degree}, ${e.institution_name} (${e.start_date} — ${e.end_date})`),
     "",
     "SKILLS",
     c.skills.join(", "),
     "",
     "CERTIFICATIONS",
-    c.certifications.join(", "),
+    (c.certifications_history || []).map((cert) => cert.name).join(", "),
     "",
     "SCORE BREAKDOWN",
-    `Match Score: ${c.match} / 100`,
+    `Match Score: ${c.match_score} / 100`,
     `Tier: ${c.tier}`,
-    ...(Array.isArray(c.scores) ? c.scores : []).map((s) => `- ${s.criteria}: ${s.score} / ${s.weight} — ${s.reason || ""}`),
+    ...(c.evaluation?.scores || []).map((s) => `- ${s.criteria}: ${s.score} / ${s.weight} — ${s.reason || ""}`),
   ].join("\n");
 }
 
 function buildCsv(c: Candidate, jobTitle?: string) {
   const esc = (v: string) => `"${(v ?? "").replace(/"/g, '""')}"`;
-  const scores = Array.isArray(c.scores) ? c.scores : [];
+  const scores = c.evaluation?.scores || [];
   const rows: [string, string][] = [
     ["Name", c.name], ["Email", c.email], ["Phone", c.phone],
-    ["Title", c.title], ["Company", c.company],
-    ["Experience (years)", String(c.experience)], ["Location", c.location],
-    ["Education", c.education], ["Match (%)", String(c.match)],
-    ["Tier", c.tier], ["Stage", c.stage],
-    ["Applied Date", c.appliedDate], ["Applied Job", jobTitle ?? ""],
-    ["Skills", (c.skills || []).join("; ")], ["Missing Skills", (c.missingSkills || []).join("; ")],
-    ["Languages", (c.languages || []).map((l) => `${l.name} (${l.level})`).join("; ")],
-    ["Certifications", (c.certifications || []).join("; ")],
-    ["Salary expectation", c.salaryExpectation],
-    ["Notice period", c.noticePeriod],
-    ["Source", c.source], ["LinkedIn", c.links?.linkedin ?? ""],
-    ["GitHub", c.links?.github ?? ""],
-    ["Portfolio", c.links?.portfolio ?? ""],
-    ["Summary", c.summary],
+    ["Title", c.title ?? ""], ["Company", c.company ?? ""],
+    ["Experience (years)", String(c.experience)], ["Location", c.location ?? ""],
+    ["Education", c.education ?? ""], ["Match (%)", String(c.match_score)],
+    ["Tier", c.tier ?? ""], ["Stage", c.stage],
+    ["Applied Date", c.applied_date], ["Applied Job", jobTitle ?? ""],
+    ["Skills", (c.skills || []).join("; ")],
+    ["Languages", (c.languages_history || []).map((l) => `${l.language} (${l.proficiency})`).join("; ")],
+    ["Certifications", (c.certifications_history || []).map((cert) => cert.name).join("; ")],
+    ["Salary expectation", c.salary_expectation],
+    ["Notice period", c.notice_period],
+    ["Source", c.source], ["LinkedIn", c.personal_info?.profiles?.linkedin ?? ""],
+    ["GitHub", c.personal_info?.profiles?.github ?? ""],
+    ["Portfolio", c.personal_info?.profiles?.portfolio ?? ""],
+    ["Summary", c.evaluation?.summary ?? ""],
     ...scores.map((s) => [`${s.criteria} (/${s.weight})`, String(s.score)] as [string, string]),
   ];
   return [["Field", "Value"], ...rows].map((r) => r.map(esc).join(",")).join("\n");
@@ -106,61 +106,39 @@ function buildCandidateJson(c: Candidate) {
         country: c.personal_info?.address?.country || ""
       },
       profiles: {
-        linkedin: c.personal_info?.profiles?.linkedin || c.links?.linkedin || "",
-        github: c.personal_info?.profiles?.github || c.links?.github || "",
-        portfolio: c.personal_info?.profiles?.portfolio || c.links?.portfolio || ""
+        linkedin: c.personal_info?.profiles?.linkedin || "",
+        github: c.personal_info?.profiles?.github || "",
+        portfolio: c.personal_info?.profiles?.portfolio || ""
       }
     },
     professional_summary: {
-      summary: c.professional_summary?.summary || c.summary || "",
+      summary: c.professional_summary?.summary || c.evaluation?.summary || "",
       total_experience_years: c.professional_summary?.total_experience_years || c.experience || 0,
       notice_period_days: c.professional_summary?.notice_period_days || 0,
       preferred_locations: c.professional_summary?.preferred_locations || [],
       authorized_to_work_in_nepal: c.professional_summary?.authorized_to_work_in_nepal || false
     },
     skills: c.skills,
-    experience: c.experience_history && c.experience_history.length > 0
-      ? c.experience_history.map((w) => ({
-          company_name: w.company_name || "",
-          job_title: w.job_title || "",
-          employment_type: w.employment_type || "",
-          location: w.location || "",
-          start_date: w.start_date || "",
-          end_date: w.end_date || "",
-          currently_working: w.currently_working || false,
-          work_summary: w.work_summary || "",
-          technologies_used: w.technologies_used || []
-        }))
-      : c.workHistory.map((w) => ({
-          company_name: w.company || "",
-          job_title: w.role || "",
-          employment_type: "",
-          location: "",
-          start_date: w.start || "",
-          end_date: w.end || "",
-          currently_working: w.end === "Present" || !w.end,
-          work_summary: w.description || "",
-          technologies_used: []
-        })),
-    education: c.education_history && c.education_history.length > 0
-      ? c.education_history.map((e) => ({
-          degree: e.degree || "",
-          field_of_study: e.field_of_study || "",
-          institution_name: e.institution_name || "",
-          location: e.location || "",
-          start_date: e.start_date || "",
-          end_date: e.end_date || "",
-          grade: e.grade || ""
-        }))
-      : c.educationHistory.map((e) => ({
-          degree: e.degree || "",
-          field_of_study: "",
-          institution_name: e.school || "",
-          location: "",
-          start_date: e.start || "",
-          end_date: e.end || "",
-          grade: ""
-        })),
+    experience: (c.experience_history || []).map((w) => ({
+      company_name: w.company_name || "",
+      job_title: w.job_title || "",
+      employment_type: w.employment_type || "",
+      location: w.location || "",
+      start_date: w.start_date || "",
+      end_date: w.end_date || "",
+      currently_working: w.currently_working || false,
+      work_summary: w.work_summary || "",
+      technologies_used: w.technologies_used || []
+    })),
+    education: (c.education_history || []).map((e) => ({
+      degree: e.degree || "",
+      field_of_study: e.field_of_study || "",
+      institution_name: e.institution_name || "",
+      location: e.location || "",
+      start_date: e.start_date || "",
+      end_date: e.end_date || "",
+      grade: e.grade || ""
+    })),
     projects: c.projects && c.projects.length > 0
       ? c.projects.map((p) => ({
           project_name: p.project_name || "",
@@ -170,26 +148,15 @@ function buildCandidateJson(c: Candidate) {
           live_url: p.live_url || ""
         }))
       : [],
-    certifications: c.certifications_history && c.certifications_history.length > 0
-      ? c.certifications_history.map((cert) => ({
-          name: cert.name || "",
-          issuer: cert.issuer || "",
-          issue_date: cert.issue_date || ""
-        }))
-      : c.certifications.map((cert) => ({
-          name: cert || "",
-          issuer: "",
-          issue_date: ""
-        })),
-    languages: c.languages_history && c.languages_history.length > 0
-      ? c.languages_history.map((l) => ({
-          language: l.language || "",
-          proficiency: l.proficiency || ""
-        }))
-      : c.languages.map((l) => ({
-          language: l.name || "",
-          proficiency: l.level || ""
-        })),
+    certifications: (c.certifications_history || []).map((cert) => ({
+      name: cert.name || "",
+      issuer: cert.issuer || "",
+      issue_date: cert.issue_date || ""
+    })),
+    languages: (c.languages_history || []).map((l) => ({
+      language: l.language || "",
+      proficiency: l.proficiency || ""
+    })),
     achievements: c.achievements,
     awards: c.awards || []
   };
@@ -269,7 +236,7 @@ export function CandidateModal() {
     setPendingStage("");
   };
 
-  const job = c ? jobs.find((j) => j.id === c.jobId) : undefined;
+  const job = c ? jobs.find((j) => j.id === c.job_id) : undefined;
   const candidateJson = c ? buildCandidateJson(c) : undefined;
 
   const isOpen = id !== null;
@@ -313,7 +280,7 @@ export function CandidateModal() {
                   <StageChip stage={c.stage} />
                   <MatchBadge tier={c.tier} />
                   <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    Match {c.match}%
+                    Match {c.match_score}%
                   </span>
                 </div>
               </div>
@@ -371,16 +338,16 @@ export function CandidateModal() {
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       <Sparkles className="h-4 w-4 text-primary" /> AI Summary
                     </div>
-                    <p className="mt-2 text-sm leading-relaxed text-foreground/90">{c.summary}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground/90">{c.evaluation?.summary || "—"}</p>
                   </div>
 
                   <Section title="Contact">
                     <dl className="space-y-2 text-sm">
                       <Row icon={Mail} label={candidateJson?.personal_info.email || c.email} />
                       <Row icon={Phone} label={candidateJson?.personal_info.phone || c.phone} />
-                      <Row icon={Building2} label={c.company} />
-                      <Row icon={MapPin} label={candidateJson ? `${candidateJson.personal_info.address.city}, ${candidateJson.personal_info.address.state}, ${candidateJson.personal_info.address.country}` : c.location} />
-                      <Row icon={Calendar} label={`Applied ${c.appliedDate} · ${job?.title ?? "—"}`} />
+                      <Row icon={Building2} label={c.company ?? "—"} />
+                      <Row icon={MapPin} label={candidateJson ? `${candidateJson.personal_info.address.city}, ${candidateJson.personal_info.address.state}, ${candidateJson.personal_info.address.country}` : (c.location ?? "—")} />
+                      <Row icon={Calendar} label={`Applied ${c.applied_date} · ${job?.title ?? "—"}`} />
                       <Row icon={Share2} label={`Source: ${c.source}`} />
                       {candidateJson?.personal_info.profiles.linkedin && <Row icon={Linkedin} label={candidateJson.personal_info.profiles.linkedin} />}
                       {candidateJson?.personal_info.profiles.github && <Row icon={Github} label={candidateJson.personal_info.profiles.github} />}
@@ -390,8 +357,8 @@ export function CandidateModal() {
 
                   <Section title="Compensation">
                     <dl className="space-y-2 text-sm">
-                      <Row icon={DollarSign} label={`Expected: ${c.salaryExpectation}`} />
-                      <Row icon={Clock} label={`Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.noticePeriod}`} />
+                      <Row icon={DollarSign} label={`Expected: ${c.salary_expectation}`} />
+                      <Row icon={Clock} label={`Notice: ${candidateJson ? `${candidateJson.professional_summary.notice_period_days} days` : c.notice_period}`} />
                     </dl>
                   </Section>
 
@@ -402,7 +369,7 @@ export function CandidateModal() {
                           <Check className="h-3.5 w-3.5 text-emerald-500" /> Strengths
                         </div>
                         <ul className="mt-1.5 space-y-1 list-disc list-inside text-xs text-muted-foreground pl-1">
-                          {c.strengths.map((s, idx) => (
+                          {(c.evaluation?.strengths || []).map((s, idx) => (
                             <li key={idx}>{s}</li>
                           ))}
                         </ul>
@@ -412,7 +379,7 @@ export function CandidateModal() {
                           <XIcon className="h-3.5 w-3.5 text-rose-500" /> Areas for Development
                         </div>
                         <ul className="mt-1.5 space-y-1 list-disc list-inside text-xs text-muted-foreground pl-1">
-                          {c.weaknesses.map((w, idx) => (
+                          {(c.evaluation?.weaknesses || []).map((w, idx) => (
                             <li key={idx}>{w}</li>
                           ))}
                         </ul>
@@ -484,13 +451,13 @@ export function CandidateModal() {
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Points</div>
-                        <div className="text-xl font-black text-foreground">{c.match} <span className="text-xs text-muted-foreground font-normal">/100</span></div>
+                        <div className="text-xl font-black text-foreground">{c.match_score} <span className="text-xs text-muted-foreground font-normal">/100</span></div>
                       </div>
                     </div>
 
                     {/* Categories list */}
                     <div className="space-y-3">
-                      {(Array.isArray(c.scores) ? c.scores : []).map((item) => {
+                      {(c.evaluation?.scores || []).map((item) => {
                         const pct = item.weight > 0 ? (item.score / item.weight) * 100 : 0;
                         const isFailed = item.score < (item.weight / 2);
                         
@@ -536,7 +503,7 @@ export function CandidateModal() {
                           </div>
                         );
                       })}
-                      {(!Array.isArray(c.scores) || c.scores.length === 0) && (
+                      {(!c.evaluation?.scores || c.evaluation.scores.length === 0) && (
                         <div className="text-sm text-muted-foreground text-center py-4">No score breakdown available</div>
                       )}
                     </div>
@@ -552,12 +519,12 @@ export function CandidateModal() {
 
                   <Section title="Experience" icon={Briefcase}>
                     <ol className="space-y-3 border-l border-border pl-4">
-                      {c.workHistory.map((w, i) => (
+                      {(c.experience_history || []).map((w, i) => (
                         <li key={i} className="relative">
                           <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-primary" />
-                          <div className="text-sm font-medium">{w.role}</div>
-                          <div className="text-xs text-muted-foreground">{w.company} · {w.start} — {w.end}</div>
-                          {w.description && <p className="mt-1 text-xs text-muted-foreground">{w.description}</p>}
+                          <div className="text-sm font-medium">{w.job_title}</div>
+                          <div className="text-xs text-muted-foreground">{w.company_name} · {w.start_date} — {w.currently_working ? "Present" : w.end_date}</div>
+                          {w.work_summary && <p className="mt-1 text-xs text-muted-foreground">{w.work_summary}</p>}
                         </li>
                       ))}
                     </ol>
@@ -565,10 +532,10 @@ export function CandidateModal() {
 
                   <Section title="Education" icon={GraduationCap}>
                     <ul className="space-y-2 text-sm">
-                      {c.educationHistory.map((e, i) => (
+                      {(c.education_history || []).map((e, i) => (
                         <li key={i}>
                           <div className="font-medium">{e.degree}</div>
-                          <div className="text-xs text-muted-foreground">{e.school} · {e.start} — {e.end}</div>
+                          <div className="text-xs text-muted-foreground">{e.institution_name} · {e.start_date} — {e.end_date}</div>
                         </li>
                       ))}
                     </ul>
@@ -576,9 +543,9 @@ export function CandidateModal() {
 
                   <Section title="Languages" icon={Languages}>
                     <div className="flex flex-wrap gap-1.5">
-                      {c.languages.map((l) => (
-                        <span key={l.name} className="rounded-md bg-muted px-2 py-0.5 text-xs">
-                          {l.name} <span className="text-muted-foreground">· {l.level}</span>
+                      {(c.languages_history || []).map((l, i) => (
+                        <span key={i} className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                          {l.language} <span className="text-muted-foreground">· {l.proficiency}</span>
                         </span>
                       ))}
                     </div>
@@ -586,9 +553,9 @@ export function CandidateModal() {
 
                   <Section title="Certifications" icon={Award}>
                     <ul className="space-y-1 text-sm">
-                      {c.certifications.map((cert) => (
-                        <li key={cert} className="flex items-center gap-2">
-                          <Award className="h-3.5 w-3.5 text-primary" /> {cert}
+                      {(c.certifications_history || []).map((cert, i) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <Award className="h-3.5 w-3.5 text-primary" /> {cert.name}
                         </li>
                       ))}
                     </ul>
@@ -646,7 +613,7 @@ export function CandidateModal() {
                     <p className="text-xs text-muted-foreground mt-0.5">Rendered live from the secure upload location / minIO storage server.</p>
                   </div>
                   <a
-                    href={c.cvUrl || "#"}
+                    href={c.cv_url || "#"}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-muted active:scale-95 transition-all text-foreground"
@@ -655,9 +622,9 @@ export function CandidateModal() {
                   </a>
                 </div>
                 <div className="relative overflow-hidden rounded-xl border border-border bg-muted/20 shadow-inner flex items-center justify-center h-[650px]">
-                  {c.cvUrl ? (
+                  {c.cv_url ? (
                     <iframe
-                      src={`${c.cvUrl}#toolbar=0`}
+                      src={`${c.cv_url}#toolbar=0`}
                       className="w-full h-full border-none"
                       title={`${c.name} Resume`}
                     />
@@ -832,11 +799,11 @@ function NotesBlock({
         </button>
       </div>
       <ul className="space-y-2">
-        {notes.map((n, i) => (
-          <li key={i} className="rounded-lg bg-muted/40 p-2 text-sm">
+        {notes.map((n) => (
+          <li key={n.id} className="rounded-lg bg-muted/40 p-2 text-sm">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{n.author}</span>
-              <span>{n.date}</span>
+              <span className="font-medium text-foreground">{n.author?.name ?? "Unknown"}</span>
+              <span>{new Date(n.created_at).toLocaleDateString()}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap">{n.content}</p>
           </li>

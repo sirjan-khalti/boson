@@ -110,63 +110,72 @@ export type Job = {
   status: "Active" | "Closed";
   closed_date?: string | null;
   applicants: number;
-  postedDate: string;
+  posted_date: string;
   description: string;
   skills: string[];
   scoring_criteria: ScoringCriterion[];
 };
 
-export type WorkExperience = {
+export type CandidateActor = {
+  id: string;
+  name: string;
+  email: string;
   role: string;
-  company: string;
-  start: string;
-  end: string;
-  description?: string;
 };
 
-export type EducationEntry = {
-  degree: string;
-  school: string;
-  start: string;
-  end: string;
+export type CandidateNote = {
+  id: string;
+  author: CandidateActor | null;
+  content: string;
+  created_at: string;
+};
+
+export type CandidateStageHistoryEntry = {
+  stage: CandidateStage;
+  changed_at: string;
+  changed_by: CandidateActor | null;
+};
+
+export type CandidateEvaluation = {
+  summary: string | null;
+  scores: ScoreBreakdown[];
+  strengths: string[];
+  weaknesses: string[];
+  evaluated_at: string | null;
 };
 
 export type Candidate = {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  avatar: string;
-  title: string;
-  company: string;
-  experience: number;
-  location: string;
-  education: string;
-  educationHistory: EducationEntry[];
-  match: number;
+  job_id: string;
+  stage: CandidateStage;
+  stage_history: CandidateStageHistoryEntry[];
+  applied_date: string;
+  match_score: number;
   tier: MatchTier | "Pending" | null;
   evaluation_status: EvaluationStatus;
+  evaluation: CandidateEvaluation | null;
+  notes: CandidateNote[];
+
+  name: string;
+  experience: number;
+
+  cv_filelink?: string | null;
+  cv_url?: string | null;
+
+  // Computed on the API response, not stored — see app/models/candidate.py
+  email: string;
+  phone: string;
+  title: string | null;
+  company: string | null;
+  location: string | null;
+  education: string | null;
+
   skills: string[];
-  missingSkills: string[];
-  languages: { name: string; level: string }[];
-  certifications: string[];
   achievements: string[];
-  links: { linkedin?: string; github?: string; portfolio?: string };
-  workHistory: WorkExperience[];
-  salaryExpectation: string;
-  noticePeriod: string;
+  salary_expectation: string;
+  notice_period: string;
   source: string;
-  stage: CandidateStage;
-  pastStages?: CandidateStage[];
-  appliedDate: string;
-  jobId: string;
-  summary: string;
-  notes: { author: string; date: string; content: string }[];
-  scores: ScoreBreakdown[];
-  strengths: string[];
-  weaknesses: string[];
-  cvUrl?: string;
-  
+
   // Parsed schema properties mapping from backend CandidateResponse
   personal_info?: PersonalInfo;
   professional_summary?: ProfessionalSummary;

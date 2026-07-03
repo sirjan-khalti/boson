@@ -7,14 +7,28 @@ import {
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Legend,
 } from "recharts";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { StatCard } from "@/components/ats/StatCard";
 import { MatchScore, MatchBadge } from "@/components/ats/MatchBadge";
 import { Avatar } from "@/components/ats/Avatar";
 import { StageChip } from "@/components/ats/StageChip";
 import { useAts } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import type { CandidateStage } from "@/lib/data";
+import { api } from "@/lib/api";
+
+// Cycled by index rather than keyed by stage name, so this stays correct
+// regardless of how many stages the backend defines or what order they
+// come back in.
+const STAGE_COLORS = [
+  "oklch(0.75 0.08 240)", // blue
+  "oklch(0.7 0.16 200)", // teal
+  "oklch(0.75 0.16 80)", // amber
+  "oklch(0.6 0.22 295)", // purple
+  "oklch(0.7 0.15 50)", // orange
+  "oklch(0.7 0.19 330)", // pink
+  "oklch(0.62 0.18 140)", // green
+  "oklch(0.62 0.24 27)", // red
+];
 
 export default function Dashboard() {
   const candidates = useAts((s) => s.candidates);
@@ -24,61 +38,59 @@ export default function Dashboard() {
   const openCandidate = useAts((s) => s.openCandidate);
   const { user } = useAuth();
 
+  const [stages, setStages] = useState<string[]>([]);
+
   useEffect(() => {
     fetchJobs();
     fetchCandidates();
+    api.getCandidateFilterOptions()
+      .then((opts) => setStages(opts.stages))
+      .catch((err) => console.error("Failed to load stage options", err));
   }, [fetchJobs, fetchCandidates]);
   const recent = useMemo(() => {
     return [...candidates]
       .sort((a, b) => {
-        const dateA = a.appliedDate ? new Date(a.appliedDate).getTime() : 0;
-        const dateB = b.appliedDate ? new Date(b.appliedDate).getTime() : 0;
+        const dateA = a.applied_date ? new Date(a.applied_date).getTime() : 0;
+        const dateB = b.applied_date ? new Date(b.applied_date).getTime() : 0;
         return dateB - dateA;
       })
       .slice(0, 6);
   }, [candidates]);
 
   const top = useMemo(() => {
-    return [...candidates].sort((a, b) => b.match - a.match).slice(0, 5);
+    return [...candidates].sort((a, b) => b.match_score - a.match_score).slice(0, 5);
   }, [candidates]);
 
   const appsPerJob = useMemo(() => {
     return jobs
       .filter((j) => j.status === "Active")
       .map((j) => {
-        const jobCandidates = candidates.filter((c) => c.jobId === j.id);
-
-        const applied = jobCandidates.filter((c) => c.stage === "Applied").length;
-        const screening = jobCandidates.filter((c) => c.stage === "Screening").length;
-        const shortlisted = jobCandidates.filter((c) => c.stage === "Shortlisted").length;
-        const interview = jobCandidates.filter((c) => c.stage === "Interview").length;
-        const offer = jobCandidates.filter((c) => c.stage === "Offer").length;
-        const hired = jobCandidates.filter((c) => c.stage === "Hired").length;
-        const rejected = jobCandidates.filter((c) => c.stage === "Rejected").length;
+        const jobCandidates = candidates.filter((c) => c.job_id === j.id);
+        const counts: Record<string, number> = {};
+        for (const stage of stages) {
+          counts[stage] = jobCandidates.filter((c) => c.stage === stage).length;
+        }
 
         return {
           id: j.id,
           name: j.title.split(" ").slice(0, 2).join(" "),
           fullName: j.title,
-          applied,
-          screening,
-          shortlisted,
-          interview,
-          offer,
-          hired,
-          rejected,
+          ...counts,
           total: jobCandidates.length,
         };
       });
-  }, [jobs, candidates]);
+  }, [jobs, candidates, stages]);
+
+  // Excludes the terminal-negative outcome — this chart tracks positive
+  // progression through the pipeline, not rejections.
+  const funnelStages = useMemo(() => stages.filter((s) => s !== "Rejected"), [stages]);
 
   const funnelData = useMemo(() => {
-    const stages = ["Applied", "Screening", "Shortlisted", "Interview", "Offer", "Hired"];
-    return stages.map(stage => ({
+    return funnelStages.map((stage) => ({
       stage,
-      value: candidates.filter(c => c.pastStages?.includes(stage as CandidateStage) || (c.stage as string) === stage).length
+      value: candidates.filter((c) => c.stage_history?.some((h) => h.stage === stage) || c.stage === stage).length,
     }));
-  }, [candidates]);
+  }, [candidates, funnelStages]);
 
   const stats = useMemo(() => {
     const activeJobs = jobs.filter((j) => j.status === "Active").length;
@@ -86,7 +98,7 @@ export default function Dashboard() {
     const interviews = candidates.filter((c) => c.stage === "Interview").length;
     const hired = candidates.filter((c) => c.stage === "Hired").length;
     const avgMatch = totalCandidates > 0
-      ? Math.round(candidates.reduce((s, c) => s + c.match, 0) / totalCandidates)
+      ? Math.round(candidates.reduce((s, c) => s + c.match_score, 0) / totalCandidates)
       : 0;
     return { activeJobs, totalCandidates, interviews, hired, avgMatch };
   }, [jobs, candidates]);
@@ -150,13 +162,15 @@ export default function Dashboard() {
                     }}
                   />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="applied" name="Applied" stackId="a" fill="oklch(0.75 0.08 240)" />
-                  <Bar dataKey="screening" name="Screening" stackId="a" fill="oklch(0.7 0.16 200)" />
-                  <Bar dataKey="shortlisted" name="Shortlisted" stackId="a" fill="oklch(0.75 0.16 80)" />
-                  <Bar dataKey="interview" name="Interview" stackId="a" fill="oklch(0.6 0.22 295)" />
-                  <Bar dataKey="offer" name="Offer" stackId="a" fill="oklch(0.7 0.19 330)" />
-                  <Bar dataKey="hired" name="Hired" stackId="a" fill="oklch(0.62 0.18 140)" />
-                  <Bar dataKey="rejected" name="Rejected" stackId="a" fill="oklch(0.62 0.24 27)" />
+                  {stages.map((stage, idx) => (
+                    <Bar
+                      key={stage}
+                      dataKey={stage}
+                      name={stage}
+                      stackId="a"
+                      fill={STAGE_COLORS[idx % STAGE_COLORS.length]}
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -221,8 +235,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-muted-foreground">{jobs.find(j => j.id === c.jobId)?.title}</td>
-                  <td className="px-3 py-3"><div className="flex items-center gap-2"><MatchScore score={c.match} /><MatchBadge tier={c.tier} /></div></td>
+                  <td className="px-3 py-3 text-muted-foreground">{jobs.find(j => j.id === c.job_id)?.title}</td>
+                  <td className="px-3 py-3"><div className="flex items-center gap-2"><MatchScore score={c.match_score} /><MatchBadge tier={c.tier} /></div></td>
                   <td className="px-3 py-3"><StageChip stage={c.stage} /></td>
                 </tr>
               ))}
@@ -246,7 +260,7 @@ export default function Dashboard() {
                     <div className="truncate text-xs text-muted-foreground">{c.title} · {c.experience}y</div>
                   </div>
                   <div className="text-right">
-                    <MatchScore score={c.match} />
+                    <MatchScore score={c.match_score} />
                     <div className="mt-0.5"><MatchBadge tier={c.tier} /></div>
                   </div>
                 </button>

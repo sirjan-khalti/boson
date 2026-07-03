@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from sqlalchemy.exc import IntegrityError
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
-from app.models.user import User
+from app.models.user import Users
 from app.schemas.user import Role
 
 
@@ -30,12 +30,12 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        existing = db.query(User).filter(User.email == args.email).first()
+        existing = db.query(Users).filter(Users.email == args.email).first()
         if existing:
             print(f"Error: a user with email '{args.email}' already exists (role: {existing.role}).")
             sys.exit(1)
 
-        user = User(
+        user = Users(
             name=args.name,
             email=args.email,
             hashed_password=get_password_hash(args.password),

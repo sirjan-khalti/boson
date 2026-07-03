@@ -137,7 +137,10 @@ PostgreSQL, and Groq LLM — containerized with Docker Compose.
 - Auto-SUPERADMIN assignment for first registered user
 - Role-based route protection via FastAPI dependency injection (RequireRole)
 - CORS restricted to explicit frontend origins with credentials support
-- Rate limiting via slowapi on public endpoints:
+- Rate limiting via slowapi on public endpoints, keyed by client IP
+  (reads X-Forwarded-For when present — see the nginx note under
+  Infrastructure & DevOps — falling back to the direct connection IP
+  otherwise):
   - /candidates/parse: 10 requests/minute
   - /candidates/submit: 5 requests/minute
 - Google reCAPTCHA Enterprise verification on candidate-facing endpoints
@@ -175,6 +178,15 @@ PostgreSQL, and Groq LLM — containerized with Docker Compose.
 - HMR disabled in both frontend Vite configurations for stability
 - Environment-based configuration via .env file with settings for:
   database, JWT secret, Groq API key, reCAPTCHA credentials, API URLs
+- **Production deployment behind nginx**: rate limiting trusts the
+  `X-Forwarded-For` header to identify the real client IP (set nginx's
+  `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). This
+  is only safe if nginx is the sole public entry point — the
+  `customer-page`, `recruiter-view`, `api`, and `db` containers' ports
+  must NOT be published to the public internet (bind them to
+  `127.0.0.1` or drop the host port mapping and let nginx reach them
+  over the Docker network instead), otherwise a client can bypass nginx
+  and spoof `X-Forwarded-For` to defeat rate limiting entirely.
 
 ## 📦 Tech Stack
 

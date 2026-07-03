@@ -11,16 +11,22 @@ from fastapi import (
     status,
 )
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Annotated, Optional
+from uuid import UUID
 
+from app.core.constants import RATE_LIMIT_PARSE_RESUME, RATE_LIMIT_SUBMIT_APPLICATION
 from app.core.database import get_db
-from app.core.exceptions import BadRequestError
-from app.models.user import User
+from app.core.exceptions import RecaptchaVerificationFailedError
+from app.models.user import Users
 from app.schemas.candidate import (
+    CandidateFilterOptionsResponse,
+    CandidateListFilters,
+    CandidateNoteCreate,
     CandidateResponse,
     CandidateStageUpdate,
-    CandidateNoteCreate,
     PaginatedCandidatesResponse,
+    ParsedResumeResponse,
+    RecruitmentReportResponse,
 )
 from app.core.config import settings
 from app.api.dependencies import get_current_user, get_current_user_optional, requires_recruiter
@@ -31,8 +37,8 @@ from app.services import candidate as candidate_service
 router = APIRouter(tags=["candidates"])
 
 
-@router.post("/parse")
-@limiter.limit("10/minute")
+@router.post("/parse", response_model=ParsedResumeResponse)
+@limiter.limit(RATE_LIMIT_PARSE_RESUME)
 async def parse_cv(
     request: Request,
     file: UploadFile = File(...),
@@ -47,20 +53,20 @@ async def parse_cv(
             api_key=settings.RECAPTCHA_API_KEY,
         )
         if not is_valid:
-            raise BadRequestError("reCAPTCHA verification failed.")
+            raise RecaptchaVerificationFailedError()
 
     return await candidate_service.parse_resume(file)
 
 
 @router.post("/submit", response_model=CandidateResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
+@limiter.limit(RATE_LIMIT_SUBMIT_APPLICATION)
 async def submit_application(
     request: Request,
     background_tasks: BackgroundTasks,
     candidate: str = Form(...),
     file: UploadFile = File(None),
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: Optional[Users] = Depends(get_current_user_optional),
 ):
     # Reachable both anonymously (public careers page) and from the logged-in
     # recruiter portal's Upload CV flow — the service uses current_user's
@@ -70,30 +76,31 @@ async def submit_application(
 
 @router.get("/fetch", response_model=PaginatedCandidatesResponse, dependencies=[Depends(get_current_user)])
 def get_candidates(
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=10000),
-    jobId: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    minScore: Optional[int] = Query(None),
-    minExp: Optional[float] = Query(None),
-    stage: Optional[str] = Query(None),
-    tiers: Optional[List[str]] = Query(None),
-    source: Optional[str] = Query(None),
-    sort_by: str = Query("match"),
-    sort_order: str = Query("desc"),
+    filters: Annotated[CandidateListFilters, Query()],
     db: Session = Depends(get_db),
 ):
     return candidate_service.get_paginated(
-        db, page, size, jobId, search, minScore, minExp, stage, tiers, source, sort_by, sort_order
+        db,
+        filters.page,
+        filters.size,
+        filters.jobId,
+        filters.search,
+        filters.minScore,
+        filters.minExp,
+        filters.stage,
+        filters.tiers,
+        filters.source,
+        filters.sort_by,
+        filters.sort_order,
     )
 
 
-@router.get("/filters", dependencies=[Depends(get_current_user)])
+@router.get("/filters", response_model=CandidateFilterOptionsResponse, dependencies=[Depends(get_current_user)])
 def get_candidate_filter_options(db: Session = Depends(get_db)):
     return candidate_service.get_filter_options(db)
 
 
-@router.get("/reports", dependencies=[Depends(get_current_user)])
+@router.get("/reports", response_model=RecruitmentReportResponse, dependencies=[Depends(get_current_user)])
 def get_recruitment_report(
     start: str = Query(...),
     end: str = Query(...),
@@ -104,7 +111,7 @@ def get_recruitment_report(
 
 @router.get("/{candidate_id}", response_model=CandidateResponse, dependencies=[Depends(get_current_user)])
 def get_candidate_by_id(
-    candidate_id: str,
+    candidate_id: UUID,
     db: Session = Depends(get_db),
 ):
     return candidate_service.get_by_id(db, candidate_id)
@@ -112,19 +119,19 @@ def get_candidate_by_id(
 
 @router.post("/{candidate_id}/stage", response_model=CandidateResponse)
 def update_candidate_stage(
-    candidate_id: str,
+    candidate_id: UUID,
     stage_update: CandidateStageUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(requires_recruiter),
+    current_user: Users = Depends(requires_recruiter),
 ):
     return candidate_service.update_stage(db, candidate_id, stage_update.stage, current_user)
 
 
 @router.post("/{candidate_id}/notes", response_model=CandidateResponse)
 def add_candidate_note(
-    candidate_id: str,
+    candidate_id: UUID,
     note: CandidateNoteCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(requires_recruiter),
+    current_user: Users = Depends(requires_recruiter),
 ):
     return candidate_service.add_note(db, candidate_id, note.content, current_user)

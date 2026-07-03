@@ -16,7 +16,7 @@ services:
       - API_URL=${API_URL}
       - API_INTERNAL_URL=${API_INTERNAL_URL}
     networks:
-      - frontend-network
+      - app-network
 
   recruiter-view:
     build:
@@ -35,7 +35,7 @@ services:
       - API_URL=${API_URL}
       - API_INTERNAL_URL=${API_INTERNAL_URL}
     networks:
-      - frontend-network
+      - app-network
 
   db:
     image: postgres:15-alpine
@@ -49,7 +49,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - backend-network
+      - app-network
 
   api:
     build:
@@ -70,18 +70,15 @@ services:
       - RECAPTCHA_PROJECT_ID=${RECAPTCHA_PROJECT_ID}
       - RECAPTCHA_SITE_KEY=${RECAPTCHA_SITE_KEY}
     volumes:
-      - ./static/cvs:/usr/src/app/static/cvs
+      - ${CV_STORAGE_PATH}:/usr/src/app/static/cvs
     depends_on:
       - db
     networks:
-      - frontend-network
-      - backend-network
+      - app-network
 
 volumes:
   pgdata:
 
 networks:
-  frontend-network:
-    driver: bridge
-  backend-network:
+  app-network:
     driver: bridge
