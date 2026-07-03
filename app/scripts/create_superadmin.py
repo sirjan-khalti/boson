@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
 from app.models.user import User
+from app.schemas.user import Role
 
 
 def main() -> None:
@@ -38,7 +39,7 @@ def main() -> None:
             name=args.name,
             email=args.email,
             hashed_password=get_password_hash(args.password),
-            role="SUPERADMIN",
+            role=Role.SUPERADMIN,
         )
         db.add(user)
         db.commit()

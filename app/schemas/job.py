@@ -1,8 +1,13 @@
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing import List, Literal
-from datetime import datetime
+from typing import List, Optional
+from datetime import date, datetime
+from enum import Enum
 
 from app.core.constants import DEFAULT_SCORING_CRITERIA
+
+class JobStatus(str, Enum):
+    ACTIVE = "Active"
+    CLOSED = "Closed"
 
 class ScoringCriterionSchema(BaseModel):
     criteria: str
@@ -32,7 +37,8 @@ class JobCreate(JobBase):
 
 class JobResponse(JobBase):
     id: str
-    status: str
+    status: JobStatus
+    closed_date: Optional[date] = None
     applicants: int
     postedDate: datetime
     scoring_criteria: List[ScoringCriterionSchema] = []
@@ -40,4 +46,4 @@ class JobResponse(JobBase):
     model_config = ConfigDict(from_attributes=True)
 
 class JobStatusUpdate(BaseModel):
-    status: Literal["Active", "Closed"]
+    status: JobStatus

@@ -1,7 +1,7 @@
 import json
 import os
 import tempfile
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta
 from typing import List, Optional
 
 from fastapi import BackgroundTasks, UploadFile
@@ -22,7 +22,8 @@ from app.core.logger import logger
 from app.models.candidate import Candidate
 from app.models.job import Job
 from app.schemas.activity_log import ActionType
-from app.schemas.candidate import CandidateCreate, EvaluationStatus, Tier
+from app.schemas.candidate import CandidateCreate, DateRangeFilter, EvaluationStatus, JobScopeFilter, Tier
+from app.schemas.job import JobStatus
 from app.services.activity_log import log_activity
 from app.services.cv_store import save_cv
 from app.services.evaluator import evaluate_candidate
@@ -267,7 +268,7 @@ async def submit_application(
         pastStages=["Applied"],
         cv_filelink=cv_filename,
         cvUrl=cv_url,
-        appliedDate=datetime.now(timezone.utc),
+        appliedDate=datetime.now(),
     )
 
     db.add(db_candidate)
@@ -317,7 +318,7 @@ def get_paginated(
     if jobId:
         query = query.filter(Candidate.jobId == jobId)
     else:
-        query = query.join(Job).filter(Job.status == "Active")
+        query = query.join(Job).filter(Job.status == JobStatus.ACTIVE)
 
     if search:
         search_filter = f"%{search}%"
@@ -342,7 +343,10 @@ def get_paginated(
                 actual_tiers.extend(t.split(","))
             else:
                 actual_tiers.append(t)
-        query = query.filter(Candidate.tier.in_(actual_tiers))
+        valid_tiers = {t.value for t in Tier}
+        actual_tiers = [t for t in actual_tiers if t in valid_tiers]
+        if actual_tiers:
+            query = query.filter(Candidate.tier.in_(actual_tiers))
 
     # Sorting
     ALLOWED_SORT_FIELDS = {"name", "match", "experience", "stage", "appliedDate", "title", "location"}
@@ -378,8 +382,8 @@ def get_paginated(
 
 def get_recruitment_report(db: Session, start: str, end: str) -> dict:
     try:
-        start_dt = datetime.combine(datetime.strptime(start, "%Y-%m-%d"), time.min).replace(tzinfo=timezone.utc)
-        end_dt = datetime.combine(datetime.strptime(end, "%Y-%m-%d"), time.max).replace(tzinfo=timezone.utc)
+        start_dt = datetime.combine(datetime.strptime(start, "%Y-%m-%d"), time.min)
+        end_dt = datetime.combine(datetime.strptime(end, "%Y-%m-%d"), time.max)
     except Exception:
         raise ServiceError(400, "Invalid date format. Expected YYYY-MM-DD.")
 
@@ -504,7 +508,7 @@ def add_note(db: Session, candidate_id: str, content: str, current_user) -> Cand
 
     new_note = {
         "author": current_user.email,
-        "date": datetime.now(timezone.utc).isoformat()[:10],
+        "date": datetime.now().isoformat()[:10],
         "content": content,
     }
 
@@ -567,27 +571,27 @@ def retry_evaluation(db: Session, candidate_id: str, background_tasks: Backgroun
     return _attach_cv_url(candidate)
 
 
-def _date_range_start(date_range: str) -> Optional[datetime]:
-    now = datetime.now(timezone.utc)
-    if date_range == "today":
+def _date_range_start(date_range: DateRangeFilter) -> Optional[datetime]:
+    now = datetime.now()
+    if date_range == DateRangeFilter.TODAY:
         return now.replace(hour=0, minute=0, second=0, microsecond=0)
-    if date_range == "week":
+    if date_range == DateRangeFilter.WEEK:
         start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         return start_of_today - timedelta(days=start_of_today.weekday())
-    if date_range == "year":
+    if date_range == DateRangeFilter.YEAR:
         return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
     return None
 
 
-def _evaluation_query(db: Session, date_range: str, job_scope: str):
+def _evaluation_query(db: Session, date_range: DateRangeFilter, job_scope: JobScopeFilter):
     query = db.query(Candidate).join(Job, Candidate.jobId == Job.id)
 
     start = _date_range_start(date_range)
     if start is not None:
         query = query.filter(Candidate.appliedDate >= start)
 
-    if job_scope == "open":
-        query = query.filter(Job.status == "Active")
+    if job_scope == JobScopeFilter.OPEN:
+        query = query.filter(Job.status == JobStatus.ACTIVE)
 
     return query
 
@@ -596,8 +600,8 @@ def get_evaluation_overview(
     db: Session,
     page: int,
     size: int,
-    date_range: str = "today",
-    job_scope: str = "open",
+    date_range: DateRangeFilter = DateRangeFilter.TODAY,
+    job_scope: JobScopeFilter = JobScopeFilter.OPEN,
 ) -> dict:
     query = _evaluation_query(db, date_range, job_scope)
 
@@ -626,8 +630,8 @@ def get_evaluation_overview(
 def retry_all_failed_evaluations(
     db: Session,
     background_tasks: BackgroundTasks,
-    date_range: str = "today",
-    job_scope: str = "open",
+    date_range: DateRangeFilter = DateRangeFilter.TODAY,
+    job_scope: JobScopeFilter = JobScopeFilter.OPEN,
 ) -> int:
     candidates = (
         _evaluation_query(db, date_range, job_scope)

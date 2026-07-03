@@ -14,6 +14,7 @@ const ALL_STAGES = ["All", "Applied", "Screening", "Shortlisted", "Interview", "
 export default function CandidatesPage() {
   const candidates = useAts((s) => s.candidates);
   const jobs = useAts((s) => s.jobs);
+  const fetchJobs = useAts((s) => s.fetchJobs);
   const openCandidate = useAts((s) => s.openCandidate);
   const [searchParams, setSearchParams] = useSearchParams();
   const jobId = searchParams.get("jobId") ?? undefined;
@@ -80,6 +81,10 @@ export default function CandidatesPage() {
     }, 250);
     return () => clearTimeout(timer);
   }, [minExp]);
+
+  useEffect(() => {
+    if (jobs.length === 0) fetchJobs();
+  }, [jobs.length, fetchJobs]);
 
   const selectedJob = jobId ? jobs.find((j) => j.id === jobId) : null;
 

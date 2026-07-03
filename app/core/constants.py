@@ -3,11 +3,6 @@ from app.schemas.user import Role
 # =========================================================
 # ROLES
 # =========================================================
-# Role groups used to gate API endpoints (Depends(RequireRole(...)))
-ROLES_SUPERADMIN_ONLY = [Role.SUPERADMIN]
-ROLES_ADMIN_AND_UP = [Role.SUPERADMIN, Role.ADMIN]
-ROLES_RECRUITER_AND_UP = [Role.SUPERADMIN, Role.ADMIN, Role.RECRUITER]
-
 # Roles that can be assigned to a team member (SUPERADMIN is not assignable)
 ASSIGNABLE_ROLES = [Role.ADMIN, Role.RECRUITER, Role.VIEWER]
 

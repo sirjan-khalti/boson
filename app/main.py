@@ -9,12 +9,12 @@ from slowapi import _rate_limit_exceeded_handler
 
 from app.core.exceptions import ServiceError
 from app.core.logger import logger
-from app.api.candidates import router as candidates_router
-from app.api.jobs import router as jobs_router
-from app.api.auth import router as auth_router
-from app.api.team import router as team_router
-from app.api.activity_logs import router as activity_logs_router
-from app.api.evaluations import router as evaluations_router
+from app.api.routes.candidates import router as candidates_router
+from app.api.routes.jobs import router as jobs_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.team import router as team_router
+from app.api.routes.activity_logs import router as activity_logs_router
+from app.api.routes.evaluations import router as evaluations_router
 from app.core.limiter import limiter
 
 @asynccontextmanager

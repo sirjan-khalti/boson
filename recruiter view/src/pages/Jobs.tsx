@@ -14,6 +14,7 @@ export default function JobsPage() {
   const closedJobs = useAts((s) => s.closedJobs);
   const archivedJobs = useAts((s) => s.archivedJobs);
 
+  const fetchJobs = useAts((s) => s.fetchJobs);
   const fetchActiveJobs = useAts((s) => s.fetchActiveJobs);
   const fetchClosedJobs = useAts((s) => s.fetchClosedJobs);
   const fetchArchivedJobs = useAts((s) => s.fetchArchivedJobs);
@@ -31,6 +32,11 @@ export default function JobsPage() {
   const [sortField, setSortField] = useState<string>("applicants");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
+
+  // Full job list is used for the departments dropdown regardless of tab
+  useEffect(() => {
+    if (jobs.length === 0) fetchJobs();
+  }, [jobs.length, fetchJobs]);
 
   // Fetch when tab or archive toggle changes
   useEffect(() => {
@@ -50,28 +56,15 @@ export default function JobsPage() {
   }, [tab]);
 
   const isArchived = (j: typeof jobs[number]) => {
-    if (j.status === "Active") return false;
-    if (!j.status.startsWith("Closed")) return false;
+    if (j.status !== "Closed") return false;
 
-    let dateStr = "";
-    if (j.status.includes(":")) {
-      dateStr = j.status.split(":")[1];
-    } else {
-      dateStr = j.postedDate;
-    }
-
-    const closedDate = new Date(dateStr);
+    const closedDate = new Date(j.closed_date || j.postedDate);
     const diffTime = new Date().getTime() - closedDate.getTime();
     const diffDays = diffTime / (1000 * 60 * 60 * 24);
     return diffDays >= 30;
   };
 
-  const getClosedDateStr = (j: typeof jobs[number]) => {
-    if (j.status.includes(":")) {
-      return j.status.split(":")[1];
-    }
-    return j.postedDate;
-  };
+  const getClosedDateStr = (j: typeof jobs[number]) => j.closed_date || j.postedDate;
 
   const formatToDDMMYYYY = (dateStr: string) => {
     if (!dateStr) return "N/A";
@@ -88,8 +81,10 @@ export default function JobsPage() {
     [jobs],
   );
 
-  const filtered = jobs.filter((j) => {
-    const matchTab = (tab === "Active" && j.status === "Active") || (tab === "Closed" && j.status.startsWith("Closed"));
+  const tabJobs = tab === "Active" ? activeJobs : (showOnlyArchived ? archivedJobs : closedJobs);
+
+  const filtered = tabJobs.filter((j) => {
+    const matchTab = (tab === "Active" && j.status === "Active") || (tab === "Closed" && j.status === "Closed");
     if (!matchTab) return false;
 
     if (tab === "Closed") {

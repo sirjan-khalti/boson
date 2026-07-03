@@ -107,7 +107,8 @@ export type Job = {
   department: string;
   location: string;
   type: "Full-time" | "Contract" | "Part-time" | "Intern" | "Trainee";
-  status: "Active" | "Draft" | "Closed";
+  status: "Active" | "Closed";
+  closed_date?: string | null;
   applicants: number;
   postedDate: string;
   description: string;

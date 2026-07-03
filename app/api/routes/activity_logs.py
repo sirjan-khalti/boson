@@ -4,12 +4,12 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.schemas.activity_log import PaginatedActivityLogsResponse, ActionType
-from app.api.dependencies import RequireRole
+from app.api.dependencies import requires_admin
 from app.services import activity_log
 
 router = APIRouter(tags=["activity-logs"])
 
-@router.get("/fetch", response_model=PaginatedActivityLogsResponse, dependencies=[Depends(RequireRole(["SUPERADMIN", "ADMIN"]))])
+@router.get("/fetch", response_model=PaginatedActivityLogsResponse, dependencies=[Depends(requires_admin)])
 def get_activity_logs(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),

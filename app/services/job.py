@@ -1,10 +1,10 @@
-from sqlalchemy import case, cast, Date, func
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
+from app.core.constants import JOB_ARCHIVE_AFTER_DAYS
 from app.core.exceptions import ServiceError
 from app.models.job import Job
-from app.schemas.job import JobCreate
+from app.schemas.job import JobCreate, JobStatus
 from app.schemas.activity_log import ActionType
 from app.services.activity_log import log_activity
 
@@ -14,11 +14,11 @@ def get_all(db: Session, skip: int = 0, limit: int = 100) -> list[Job]:
 
 
 def get_active(db: Session, skip: int = 0, limit: int = 100) -> list[Job]:
-    return db.query(Job).filter(Job.status == "Active").offset(skip).limit(limit).all()
+    return db.query(Job).filter(Job.status == JobStatus.ACTIVE).offset(skip).limit(limit).all()
 
 
 def get_by_id(db: Session, job_id: str) -> Job | None:
-    return db.query(Job).filter(Job.id == job_id, Job.status == "Active").first()
+    return db.query(Job).filter(Job.id == job_id, Job.status == JobStatus.ACTIVE).first()
 
 
 def get_any_by_id(db: Session, job_id: str) -> Job | None:
@@ -31,12 +31,11 @@ def get_departments(db: Session) -> list[str]:
 
 
 def get_closed(db: Session, skip: int = 0, limit: int = 100) -> list[Job]:
-    cutoff = (datetime.now() - timedelta(days=30)).date()
-    closed_date = _closed_date_expr()
+    cutoff = (datetime.now() - timedelta(days=JOB_ARCHIVE_AFTER_DAYS)).date()
     return (
         db.query(Job)
-        .filter(Job.status.like("Closed%"))
-        .filter(closed_date >= cutoff)
+        .filter(Job.status == JobStatus.CLOSED)
+        .filter(Job.closed_date >= cutoff)
         .offset(skip)
         .limit(limit)
         .all()
@@ -44,12 +43,11 @@ def get_closed(db: Session, skip: int = 0, limit: int = 100) -> list[Job]:
 
 
 def get_archived(db: Session, skip: int = 0, limit: int = 100) -> list[Job]:
-    cutoff = (datetime.now() - timedelta(days=30)).date()
-    closed_date = _closed_date_expr()
+    cutoff = (datetime.now() - timedelta(days=JOB_ARCHIVE_AFTER_DAYS)).date()
     return (
         db.query(Job)
-        .filter(Job.status.like("Closed%"))
-        .filter(closed_date < cutoff)
+        .filter(Job.status == JobStatus.CLOSED)
+        .filter(Job.closed_date < cutoff)
         .offset(skip)
         .limit(limit)
         .all()
@@ -64,37 +62,23 @@ def create(db: Session, data: JobCreate) -> Job:
     return job
 
 
-def update_status(db: Session, job: Job, new_status: str) -> Job:
-    if new_status == "Closed":
-        job.status = f"Closed:{datetime.now(timezone.utc).date().isoformat()}"
-    else:
-        job.status = new_status
+def update_status(db: Session, job: Job, new_status: JobStatus) -> Job:
+    if job.status == new_status:
+        return job
+
+    job.closed_date = datetime.now().date() if new_status == JobStatus.CLOSED else None
+    job.status = new_status
     db.commit()
     db.refresh(job)
     return job
 
 
 def can_reopen(job: Job) -> bool:
-    """Returns False if the job has been closed for 30+ days (archived)."""
-    if not job.status or not job.status.startswith("Closed"):
+    """Returns False if the job has been closed for JOB_ARCHIVE_AFTER_DAYS+ (archived)."""
+    if job.status != JobStatus.CLOSED:
         return True
-    try:
-        date_str = job.status.split(":")[1] if ":" in job.status else None
-        closed_date = (
-            datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-            if date_str
-            else job.postedDate.replace(tzinfo=timezone.utc)
-        )
-        return (datetime.now(timezone.utc) - closed_date).days < 30
-    except Exception:
-        return True
-
-
-def _closed_date_expr():
-    return case(
-        (Job.status.like("Closed:%"), cast(func.split_part(Job.status, ":", 2), Date)),
-        else_=cast(Job.postedDate, Date),
-    )
+    closed_date = job.closed_date or job.postedDate.date()
+    return (datetime.now().date() - closed_date).days < JOB_ARCHIVE_AFTER_DAYS
 
 
 def get_active_job_or_404(db: Session, job_id: str) -> Job:
@@ -117,16 +101,19 @@ def create_job_with_log(db: Session, data: JobCreate, current_user) -> Job:
     return new_job
 
 
-def set_status(db: Session, job_id: str, new_status: str, current_user) -> Job:
+def set_status(db: Session, job_id: str, new_status: JobStatus, current_user) -> Job:
     job = get_any_by_id(db, job_id)
     if not job:
         raise ServiceError(404, "Job not found")
 
-    if new_status == "Active" and not can_reopen(job):
+    if new_status == JobStatus.ACTIVE and not can_reopen(job):
         raise ServiceError(
             400,
-            "This job has been closed for more than 30 days and is archived. It cannot be reopened.",
+            f"This job has been closed for more than {JOB_ARCHIVE_AFTER_DAYS} days and is archived. It cannot be reopened.",
         )
+
+    if job.status == new_status:
+        return job
 
     updated = update_status(db, job, new_status)
     log_activity(

@@ -20,7 +20,7 @@ class UserResponse(BaseModel):
     id: str
     name: str
     email: EmailStr
-    role: str
+    role: Role
     
     model_config = ConfigDict(from_attributes=True)
 

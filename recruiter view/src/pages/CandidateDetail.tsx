@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import {
-  ArrowLeft, MapPin, GraduationCap, Building2, Mail, Calendar, Star,
-  Check, X as XIcon, CalendarPlus, ChevronRight, FileText, Sparkles,
+  ArrowLeft, MapPin, GraduationCap, Building2, Mail, Calendar,
+  Check, X as XIcon, FileText, Sparkles,
   Linkedin, Github, Globe, Clock, DollarSign, AlertTriangle,
 } from "lucide-react";
 import { type Candidate } from "@/lib/data";

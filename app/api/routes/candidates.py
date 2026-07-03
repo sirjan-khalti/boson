@@ -23,8 +23,7 @@ from app.schemas.candidate import (
     PaginatedCandidatesResponse,
 )
 from app.core.config import settings
-from app.api.dependencies import RequireRole, get_current_user
-from app.core.logger import logger
+from app.api.dependencies import get_current_user, requires_recruiter
 from app.services.recaptcha import verify_recaptcha
 from app.core.limiter import limiter
 from app.services import candidate as candidate_service
@@ -49,10 +48,6 @@ async def parse_cv(
         )
         if not is_valid:
             raise BadRequestError("reCAPTCHA verification failed.")
-    else:
-        logger.warning(
-            "reCAPTCHA API Key is not set. Bypassing verification for local development."
-        )
 
     return await candidate_service.parse_resume(file)
 
@@ -110,7 +105,7 @@ def update_candidate_stage(
     candidate_id: str,
     stage_update: CandidateStageUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN", "RECRUITER"])),
+    current_user: User = Depends(requires_recruiter),
 ):
     return candidate_service.update_stage(db, candidate_id, stage_update.stage, current_user)
 
@@ -120,6 +115,6 @@ def add_candidate_note(
     candidate_id: str,
     note: CandidateNoteCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN", "RECRUITER"])),
+    current_user: User = Depends(requires_recruiter),
 ):
     return candidate_service.add_note(db, candidate_id, note.content, current_user)

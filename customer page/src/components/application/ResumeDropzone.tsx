@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
-import { CheckCircle2, FileText, Loader2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, Loader2, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-export type UploadState = "idle" | "uploading" | "processing" | "done";
+export type UploadState = "idle" | "uploading" | "processing" | "done" | "error";
 
 interface ResumeDropzoneProps {
   onComplete: (file: File) => void;
@@ -65,7 +65,7 @@ export function ResumeDropzone({
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </div>
               </div>
-              {state === "done" ? (
+              {(state === "done" || state === "error") ? (
                 <button
                   onClick={onRemove}
                   className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -94,6 +94,12 @@ export function ResumeDropzone({
               <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[oklch(0.55_0.16_155)]">
                 <CheckCircle2 className="h-4 w-4" />
                 Upload complete — review your information below.
+              </div>
+            )}
+            {state === "error" && (
+              <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[oklch(0.62_0.24_27)]">
+                <AlertCircle className="h-4 w-4" />
+                We couldn't read this resume. Remove it and try again, or fill out the form manually below.
               </div>
             )}
           </div>

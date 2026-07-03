@@ -1025,8 +1025,15 @@ export default function ApplyPage() {
 
               {!file && uploadState === "idle" && (
                 <div className="flex flex-col items-center justify-center p-5 border border-dashed border-border/75 rounded-2xl bg-secondary/10 backdrop-blur-sm transition-all duration-300">
-
-                  <div id="recaptcha-checkbox-container" className="min-h-[78px] flex items-center justify-center"></div>
+                  {recaptchaError ? (
+                    <p className="max-w-sm px-4 text-center text-sm text-muted-foreground">
+                      We couldn't load the verification widget (this can happen on restricted
+                      networks). Resume auto-fill isn't available right now, but you can still
+                      fill out the application manually below.
+                    </p>
+                  ) : (
+                    <div id="recaptcha-checkbox-container" className="min-h-[78px] flex items-center justify-center"></div>
+                  )}
                 </div>
               )}
             </div>

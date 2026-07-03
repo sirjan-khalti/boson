@@ -17,7 +17,7 @@ def get_by_email(db: Session, email: str) -> User | None:
     return db.query(User).filter(User.email == email).first()
 
 
-def update_role(db: Session, user_id: str, new_role: str, current_user: User) -> User:
+def update_role(db: Session, user_id: str, new_role: Role, current_user: User) -> User:
     if new_role not in ASSIGNABLE_ROLES:
         raise ServiceError(400, "Invalid role specified")
 
@@ -51,9 +51,9 @@ def update_role(db: Session, user_id: str, new_role: str, current_user: User) ->
     return target_user
 
 
-def create_member(db: Session, name: str, email: str, role: str, current_user: User) -> User:
+def create_member(db: Session, name: str, email: str, role: Role, current_user: User) -> User:
     # SUPERADMIN cannot be assigned via this endpoint
-    if role not in VALID_ROLES:
+    if role not in ASSIGNABLE_ROLES:
         raise ServiceError(400, "Invalid role specified")
 
     existing_user = db.query(User).filter(User.email == email).first()
@@ -88,7 +88,7 @@ def reset_password(db: Session, user_id: str, current_user: User) -> User:
     if not target_user:
         raise ServiceError(404, "User not found")
 
-    if target_user.role == "SUPERADMIN" and current_user.role != "SUPERADMIN":
+    if target_user.role == Role.SUPERADMIN and current_user.role != Role.SUPERADMIN:
         raise ServiceError(403, "Cannot reset the password of a SUPERADMIN")
 
     target_user.hashed_password = get_password_hash(target_user.email)

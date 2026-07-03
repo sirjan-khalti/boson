@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.api.dependencies import RequireRole
+from app.api.dependencies import requires_superadmin
 from app.schemas.candidate import (
     CandidateResponse,
     PaginatedCandidatesResponse,
@@ -17,7 +17,7 @@ router = APIRouter(tags=["evaluations"])
 @router.get(
     "/fetch",
     response_model=PaginatedCandidatesResponse,
-    dependencies=[Depends(RequireRole(["SUPERADMIN"]))],
+    dependencies=[Depends(requires_superadmin)],
 )
 def get_evaluations(
     page: int = Query(1, ge=1),
@@ -30,13 +30,13 @@ def get_evaluations(
     Paginated candidate list with evaluation status, for the evaluation
     monitoring page. Accessible only to SUPERADMIN.
     """
-    return candidate.get_evaluation_overview(db, page, size, date_range.value, job_scope.value)
+    return candidate.get_evaluation_overview(db, page, size, date_range, job_scope)
 
 
 @router.post(
     "/{candidate_id}/retry",
     response_model=CandidateResponse,
-    dependencies=[Depends(RequireRole(["SUPERADMIN"]))],
+    dependencies=[Depends(requires_superadmin)],
 )
 def retry_evaluation(
     candidate_id: str,
@@ -52,7 +52,7 @@ def retry_evaluation(
 
 @router.post(
     "/retry-failed",
-    dependencies=[Depends(RequireRole(["SUPERADMIN"]))],
+    dependencies=[Depends(requires_superadmin)],
 )
 def retry_all_failed(
     background_tasks: BackgroundTasks,
@@ -64,5 +64,5 @@ def retry_all_failed(
     Re-queue the AI evaluation for every FAILED candidate matching the given
     filters (mirrors the filters applied on the evaluation page).
     """
-    count = candidate.retry_all_failed_evaluations(db, background_tasks, date_range.value, job_scope.value)
+    count = candidate.retry_all_failed_evaluations(db, background_tasks, date_range, job_scope)
     return {"queued": count}

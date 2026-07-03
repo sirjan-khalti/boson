@@ -4,7 +4,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.schemas.job import JobCreate, JobResponse, JobStatusUpdate
-from app.api.dependencies import RequireRole
+from app.api.dependencies import requires_admin, requires_recruiter
 from app.models.user import User
 from app.services import job
 
@@ -45,7 +45,7 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
 def create_job(
     job_data: JobCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN"])),
+    current_user: User = Depends(requires_admin),
 ):
     return job.create_job_with_log(db, job_data, current_user)
 
@@ -55,6 +55,6 @@ def update_job_status(
     job_id: str,
     status_update: JobStatusUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRole(["SUPERADMIN", "ADMIN", "RECRUITER"])),
+    current_user: User = Depends(requires_recruiter),
 ):
     return job.set_status(db, job_id, status_update.status, current_user)

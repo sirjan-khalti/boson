@@ -73,7 +73,7 @@ export const useAts = create<AtsState>((set, get) => ({
   fetchActiveJobs: async () => {
     try {
       const activeJobs = await api.getActiveJobs();
-      set({ activeJobs, jobs: activeJobs });
+      set({ activeJobs });
     } catch (e) {
       console.error("Failed to fetch active jobs", e);
     }
@@ -82,7 +82,7 @@ export const useAts = create<AtsState>((set, get) => ({
   fetchClosedJobs: async () => {
     try {
       const closedJobs = await api.getClosedJobs();
-      set({ closedJobs, jobs: closedJobs });
+      set({ closedJobs });
     } catch (e) {
       console.error("Failed to fetch closed jobs", e);
     }
@@ -91,7 +91,7 @@ export const useAts = create<AtsState>((set, get) => ({
   fetchArchivedJobs: async () => {
     try {
       const archivedJobs = await api.getArchivedJobs();
-      set({ archivedJobs, jobs: archivedJobs });
+      set({ archivedJobs });
     } catch (e) {
       console.error("Failed to fetch archived jobs", e);
     }

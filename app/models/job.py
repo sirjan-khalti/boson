@@ -1,9 +1,10 @@
-from sqlalchemy import Column, String, Integer, DateTime, Text
+from sqlalchemy import Column, String, Integer, DateTime, Date, Text, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from app.core.database import BaseModelDB
+from app.schemas.job import JobStatus
 
 class Job(BaseModelDB):
     __tablename__ = "jobs"
@@ -11,7 +12,13 @@ class Job(BaseModelDB):
     department = Column(String, nullable=False)
     location = Column(String, nullable=False)
     type = Column(String, nullable=False)
-    status = Column(String, default="Active")
+    status = Column(
+        SAEnum(JobStatus, name="job_status_enum", values_callable=lambda enum: [e.value for e in enum]),
+        nullable=False,
+        default=JobStatus.ACTIVE,
+        server_default=JobStatus.ACTIVE.value,
+    )
+    closed_date = Column(Date, nullable=True)
     applicants = Column(Integer, default=0)
     postedDate = Column(DateTime, default=datetime.now)
     description = Column(Text, nullable=False)

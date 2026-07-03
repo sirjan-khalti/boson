@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.models.user import User
+from app.schemas.user import Role
 from app.services import user
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
@@ -35,11 +36,19 @@ def get_current_user(
         raise UnauthorizedError()
     return current_user
 
-class RequireRole:
-    def __init__(self, allowed_roles: list[str]):
-        self.allowed_roles = allowed_roles
+def requires_recruiter(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in (Role.SUPERADMIN, Role.ADMIN, Role.RECRUITER):
+        raise ForbiddenError()
+    return current_user
 
-    def __call__(self, current_user: User = Depends(get_current_user)):
-        if current_user.role not in self.allowed_roles:
-            raise ForbiddenError()
-        return current_user
+
+def requires_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in (Role.SUPERADMIN, Role.ADMIN):
+        raise ForbiddenError()
+    return current_user
+
+
+def requires_superadmin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != Role.SUPERADMIN:
+        raise ForbiddenError()
+    return current_user
