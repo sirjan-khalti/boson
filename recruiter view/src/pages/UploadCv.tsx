@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAts } from "@/lib/store";
 import { FormField } from "@/components/ats/FormField";
 import { API_BASE } from "@/lib/config";
@@ -76,6 +77,7 @@ type CandidateSchema = {
     issue_date: string;
   }>;
   languages: Array<{
+    _key?: string;
     language: string;
     proficiency: string;
   }>;
@@ -369,6 +371,7 @@ export default function UploadCvPage() {
         education: (parsedData.education || []).map((edu: any) => ({ ...edu, _key: generateId() })),
         projects: (parsedData.projects || []).map((proj: any) => ({ ...proj, _key: generateId() })),
         certifications: (parsedData.certifications || []).map((cert: any) => ({ ...cert, _key: generateId() })),
+        languages: (parsedData.languages || []).map((lang: any) => ({ ...lang, _key: generateId() })),
         achievements: (parsedData.achievements || []).map((ach: string) => ({ _key: generateId(), value: ach })),
         awards: (parsedData.awards || []).map((aw: string) => ({ _key: generateId(), value: aw })),
         custom_fields: {
@@ -406,12 +409,26 @@ export default function UploadCvPage() {
       if (parsedData.professional_summary?.notice_period_days) prefilled.add("professional_summary.notice_period_days");
       if (parsedSalary) prefilled.add("professional_summary.expected_salary");
       if (parsedData.skills?.length) prefilled.add("skills");
-      if (parsedData.experience?.length) prefilled.add("experience");
-      if (parsedData.education?.length) prefilled.add("education");
-      if (parsedData.projects?.length) prefilled.add("projects");
-      if (parsedData.certifications?.length) prefilled.add("certifications");
-      if (parsedData.achievements?.length) prefilled.add("achievements");
-      if (parsedData.awards?.length) prefilled.add("awards");
+
+      // Per-item field tracking so the "prefilled" badge actually shows up
+      // on each individual Work Experience / Education / Language row, not
+      // just a section-level flag that nothing renders.
+      const markItems = (section: string, items: any[] | undefined, fields: string[]) => {
+        (items || []).forEach((item, idx) => {
+          fields.forEach((field) => {
+            const v = item?.[field];
+            const hasValue = Array.isArray(v) ? v.length > 0 : Boolean(v);
+            if (hasValue) prefilled.add(`${section}.${idx}.${field}`);
+          });
+        });
+      };
+      markItems("experience", parsedData.experience, [
+        "company_name", "job_title", "employment_type", "location", "start_date", "end_date", "work_summary", "technologies_used",
+      ]);
+      markItems("education", parsedData.education, [
+        "degree", "field_of_study", "institution_name", "location", "start_date", "end_date", "grade",
+      ]);
+      markItems("languages", parsedData.languages, ["language", "proficiency"]);
 
       setPrefilledFields(prefilled);
       setUploadState("done");
@@ -563,6 +580,11 @@ export default function UploadCvPage() {
       list[index] = { ...list[index], [key]: value };
       return { ...prev, experience: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`experience.${index}.${key}`);
+      return next;
+    });
   };
 
   const removeExperience = (index: number) => {
@@ -597,12 +619,44 @@ export default function UploadCvPage() {
       list[index] = { ...list[index], [key]: value };
       return { ...prev, education: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`education.${index}.${key}`);
+      return next;
+    });
   };
 
   const removeEducation = (index: number) => {
     setFormData((prev) => ({
       ...prev,
       education: prev.education.filter((_, i) => i !== index),
+    }));
+  };
+
+  const addLanguage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      languages: [...prev.languages, { _key: generateId(), language: "", proficiency: "" }],
+    }));
+  };
+
+  const updateLanguage = (index: number, key: string, value: any) => {
+    setFormData((prev) => {
+      const list = [...prev.languages];
+      list[index] = { ...list[index], [key]: value };
+      return { ...prev, languages: list };
+    });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`languages.${index}.${key}`);
+      return next;
+    });
+  };
+
+  const removeLanguage = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      languages: prev.languages.filter((_, i) => i !== index),
     }));
   };
 
@@ -676,6 +730,7 @@ export default function UploadCvPage() {
       const cleanEducation = formData.education.map(({ _key, ...rest }) => rest);
       const cleanProjects = formData.projects.map(({ _key, ...rest }) => rest);
       const cleanCertifications = formData.certifications.map(({ _key, ...rest }) => rest);
+      const cleanLanguages = formData.languages.map(({ _key, ...rest }) => rest);
       const cleanAchievements = formData.achievements.map((ach) => ach.value);
       const cleanAwards = formData.awards.map((aw) => aw.value);
 
@@ -685,6 +740,7 @@ export default function UploadCvPage() {
         education: cleanEducation,
         projects: cleanProjects,
         certifications: cleanCertifications,
+        languages: cleanLanguages,
         achievements: cleanAchievements,
         awards: cleanAwards,
         custom_fields: builtCustomFields,
@@ -857,6 +913,46 @@ export default function UploadCvPage() {
       {uploadState === "done" && (
         <div ref={formRef} className="space-y-6">
           <form onSubmit={handleFormSubmit} className="space-y-6">
+
+            {/* Work Authorization — asked first since it gates submission,
+                and resume parsing always resets it to "No" (a resume can
+                never truthfully confirm this), so it needs to be seen and
+                addressed before filling out the rest. */}
+            <Card className="border-primary/30 bg-primary/5 p-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Is the candidate legally authorized to work in Nepal? <span className="text-primary">*</span>
+                </Label>
+                <RadioGroup
+                  value={formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no"}
+                  onValueChange={(v) => updateSummary("authorized_to_work_in_nepal", v === "yes")}
+                  className="flex gap-3"
+                >
+                  {[
+                    { value: "yes", label: "Yes" },
+                    { value: "no", label: "No" },
+                  ].map((o) => (
+                    <Label
+                      key={o.value}
+                      htmlFor={`auth-${o.value}`}
+                      className={`flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${(formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no") === o.value
+                        ? "border-primary bg-background text-foreground"
+                        : "border-border bg-background hover:border-primary/40"
+                        }`}
+                    >
+                      <RadioGroupItem id={`auth-${o.value}`} value={o.value} />
+                      {o.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+                {!formData.professional_summary.authorized_to_work_in_nepal && (
+                  <p className="text-xs text-destructive mt-1.5 font-medium">
+                    ⚠️ This must be set to "Yes" before the candidate profile can be created.
+                    {file && " Uploading a resume resets this — please confirm again."}
+                  </p>
+                )}
+              </div>
+            </Card>
 
             {/* Personal Details */}
             <Card className="p-6">
@@ -1033,6 +1129,7 @@ export default function UploadCvPage() {
                         id={`exp-title-${idx}`}
                         label="Job Title"
                         required
+                        prefilled={isPrefilled(`experience.${idx}.job_title`)}
                         value={exp.job_title}
                         onChange={(e) => updateExperience(idx, "job_title", e.target.value)}
                       />
@@ -1040,6 +1137,7 @@ export default function UploadCvPage() {
                         id={`exp-company-${idx}`}
                         label="Company Name"
                         required
+                        prefilled={isPrefilled(`experience.${idx}.company_name`)}
                         value={exp.company_name}
                         onChange={(e) => updateExperience(idx, "company_name", e.target.value)}
                       />
@@ -1047,6 +1145,7 @@ export default function UploadCvPage() {
                         id={`exp-start-${idx}`}
                         label="Start Date"
                         placeholder="YYYY-MM"
+                        prefilled={isPrefilled(`experience.${idx}.start_date`)}
                         value={exp.start_date}
                         onChange={(e) => updateExperience(idx, "start_date", e.target.value)}
                       />
@@ -1055,6 +1154,7 @@ export default function UploadCvPage() {
                         label="End Date"
                         placeholder="YYYY-MM (or blank if current)"
                         disabled={exp.currently_working}
+                        prefilled={isPrefilled(`experience.${idx}.end_date`)}
                         value={exp.currently_working ? "Present" : exp.end_date}
                         onChange={(e) => updateExperience(idx, "end_date", e.target.value)}
                       />
@@ -1073,6 +1173,7 @@ export default function UploadCvPage() {
                       id={`exp-desc-${idx}`}
                       as="textarea"
                       label="Job Summary"
+                      prefilled={isPrefilled(`experience.${idx}.work_summary`)}
                       value={exp.work_summary}
                       onChange={(e) => updateExperience(idx, "work_summary", e.target.value)}
                     />
@@ -1107,6 +1208,7 @@ export default function UploadCvPage() {
                         id={`edu-degree-${idx}`}
                         label="Degree/Qualification"
                         required
+                        prefilled={isPrefilled(`education.${idx}.degree`)}
                         value={edu.degree}
                         onChange={(e) => updateEducation(idx, "degree", e.target.value)}
                       />
@@ -1114,6 +1216,7 @@ export default function UploadCvPage() {
                         id={`edu-school-${idx}`}
                         label="Institution Name"
                         required
+                        prefilled={isPrefilled(`education.${idx}.institution_name`)}
                         value={edu.institution_name}
                         onChange={(e) => updateEducation(idx, "institution_name", e.target.value)}
                       />
@@ -1121,6 +1224,7 @@ export default function UploadCvPage() {
                         id={`edu-start-${idx}`}
                         label="Start Date"
                         placeholder="YYYY-MM"
+                        prefilled={isPrefilled(`education.${idx}.start_date`)}
                         value={edu.start_date}
                         onChange={(e) => updateEducation(idx, "start_date", e.target.value)}
                       />
@@ -1128,6 +1232,7 @@ export default function UploadCvPage() {
                         id={`edu-end-${idx}`}
                         label="End Date"
                         placeholder="YYYY-MM"
+                        prefilled={isPrefilled(`education.${idx}.end_date`)}
                         value={edu.end_date}
                         onChange={(e) => updateEducation(idx, "end_date", e.target.value)}
                       />
@@ -1140,12 +1245,55 @@ export default function UploadCvPage() {
               </div>
             </Card>
 
+            {/* Languages */}
+            <Card className="p-6">
+              <div className="mb-4 pb-2 border-b border-border flex items-center justify-between">
+                <h2 className="text-base font-semibold tracking-tight">Languages</h2>
+                <Button type="button" variant="outline" size="sm" onClick={addLanguage}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Language
+                </Button>
+              </div>
+              <div className="space-y-6">
+                {formData.languages.map((lang, idx) => (
+                  <div key={lang._key || idx} className="p-4 rounded-xl border border-border bg-muted/10 relative space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => removeLanguage(idx)}
+                      className="absolute right-3 top-3 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </button>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField
+                        id={`lang-name-${idx}`}
+                        label="Language"
+                        prefilled={isPrefilled(`languages.${idx}.language`)}
+                        value={lang.language}
+                        onChange={(e) => updateLanguage(idx, "language", e.target.value)}
+                      />
+                      <FormField
+                        id={`lang-prof-${idx}`}
+                        label="Proficiency"
+                        placeholder="e.g. Native, Fluent, Conversational"
+                        prefilled={isPrefilled(`languages.${idx}.proficiency`)}
+                        value={lang.proficiency}
+                        onChange={(e) => updateLanguage(idx, "proficiency", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {formData.languages.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">No languages added.</p>
+                )}
+              </div>
+            </Card>
+
             {/* Submit Action */}
             <div className="flex justify-end gap-3">
               <Button type="button" variant="ghost" onClick={handleRemove}>
                 Clear / Reset
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !formData.professional_summary.authorized_to_work_in_nepal}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Submitting...

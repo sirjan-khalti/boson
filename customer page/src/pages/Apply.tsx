@@ -76,6 +76,7 @@ type CandidateSchema = {
     issue_date: string;
   }>;
   languages: Array<{
+    _key?: string;
     language: string;
     proficiency: string;
   }>;
@@ -339,6 +340,7 @@ export default function ApplyPage() {
         education: (parsedData.education || []).map((edu: any) => ({ ...edu, _key: generateId() })),
         projects: (parsedData.projects || []).map((proj: any) => ({ ...proj, _key: generateId() })),
         certifications: (parsedData.certifications || []).map((cert: any) => ({ ...cert, _key: generateId() })),
+        languages: (parsedData.languages || []).map((lang: any) => ({ ...lang, _key: generateId() })),
         achievements: (parsedData.achievements || []).map((ach: string) => ({ _key: generateId(), value: ach })),
         awards: (parsedData.awards || []).map((aw: string) => ({ _key: generateId(), value: aw })),
         custom_fields: {
@@ -377,12 +379,38 @@ export default function ApplyPage() {
       if (parsedData.professional_summary?.notice_period_days) prefilled.add("professional_summary.notice_period_days");
       if (parsedSalary) prefilled.add("professional_summary.expected_salary");
       if (parsedData.skills?.length) prefilled.add("skills");
-      if (parsedData.experience?.length) prefilled.add("experience");
-      if (parsedData.education?.length) prefilled.add("education");
-      if (parsedData.projects?.length) prefilled.add("projects");
-      if (parsedData.certifications?.length) prefilled.add("certifications");
-      if (parsedData.achievements?.length) prefilled.add("achievements");
-      if (parsedData.awards?.length) prefilled.add("awards");
+
+      // Per-item field tracking so the "prefilled" badge actually shows up
+      // on each individual Work Experience / Education / Project /
+      // Certification / Language row, not just a section-level flag that
+      // nothing renders.
+      const markItems = (section: string, items: any[] | undefined, fields: string[]) => {
+        (items || []).forEach((item, idx) => {
+          fields.forEach((field) => {
+            const v = item?.[field];
+            const hasValue = Array.isArray(v) ? v.length > 0 : Boolean(v);
+            if (hasValue) prefilled.add(`${section}.${idx}.${field}`);
+          });
+        });
+      };
+      markItems("experience", parsedData.experience, [
+        "company_name", "job_title", "employment_type", "location", "start_date", "end_date", "work_summary", "technologies_used",
+      ]);
+      markItems("education", parsedData.education, [
+        "degree", "field_of_study", "institution_name", "location", "start_date", "end_date", "grade",
+      ]);
+      markItems("projects", parsedData.projects, [
+        "project_name", "description", "github_url", "live_url", "technologies_used",
+      ]);
+      markItems("certifications", parsedData.certifications, ["name", "issuer", "issue_date"]);
+      markItems("languages", parsedData.languages, ["language", "proficiency"]);
+
+      if (parsedData.achievements?.length) {
+        parsedData.achievements.forEach((_: string, idx: number) => prefilled.add(`achievements.${idx}`));
+      }
+      if (parsedData.awards?.length) {
+        parsedData.awards.forEach((_: string, idx: number) => prefilled.add(`awards.${idx}`));
+      }
       if (parsedData.custom_fields?.extraInformation) prefilled.add("custom_fields.extraInformation");
       if (parsedData.custom_fields?.publications) prefilled.add("custom_fields.publications");
 
@@ -582,6 +610,11 @@ export default function ApplyPage() {
       };
       return { ...prev, experience: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`experience.${index}.${key}`);
+      return next;
+    });
     if (errors[`experience.${index}.${key}`]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -627,6 +660,11 @@ export default function ApplyPage() {
       };
       return { ...prev, education: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`education.${index}.${key}`);
+      return next;
+    });
     if (errors[`education.${index}.${key}`]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -670,6 +708,11 @@ export default function ApplyPage() {
       };
       return { ...prev, projects: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`projects.${index}.${key}`);
+      return next;
+    });
     if (errors[`projects.${index}.${key}`]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -711,6 +754,11 @@ export default function ApplyPage() {
       };
       return { ...prev, certifications: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`certifications.${index}.${key}`);
+      return next;
+    });
     if (errors[`certifications.${index}.${key}`]) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -724,6 +772,44 @@ export default function ApplyPage() {
     setFormData((prev) => ({
       ...prev,
       certifications: prev.certifications.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Dynamic languages list
+  const addLanguage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      languages: [...prev.languages, { _key: generateId(), language: "", proficiency: "" }],
+    }));
+  };
+
+  const updateLanguage = (index: number, key: string, value: any) => {
+    setFormData((prev) => {
+      const list = [...prev.languages];
+      list[index] = {
+        ...list[index],
+        [key]: value,
+      };
+      return { ...prev, languages: list };
+    });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`languages.${index}.${key}`);
+      return next;
+    });
+    if (errors[`languages.${index}.${key}`]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[`languages.${index}.${key}`];
+        return next;
+      });
+    }
+  };
+
+  const removeLanguage = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      languages: prev.languages.filter((_, i) => i !== index),
     }));
   };
 
@@ -762,6 +848,11 @@ export default function ApplyPage() {
       list[index] = { ...list[index], value };
       return { ...prev, achievements: list };
     });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`achievements.${index}`);
+      return next;
+    });
   };
 
   const removeAchievement = (index: number) => {
@@ -783,6 +874,11 @@ export default function ApplyPage() {
       const list = [...prev.awards];
       list[index] = { ...list[index], value };
       return { ...prev, awards: list };
+    });
+    setPrefilledFields((prev) => {
+      const next = new Set(prev);
+      next.delete(`awards.${index}`);
+      return next;
     });
   };
 
@@ -912,6 +1008,7 @@ export default function ApplyPage() {
       const cleanEducation = formData.education.map(({ _key, ...rest }) => rest);
       const cleanProjects = formData.projects.map(({ _key, ...rest }) => rest);
       const cleanCertifications = formData.certifications.map(({ _key, ...rest }) => rest);
+      const cleanLanguages = formData.languages.map(({ _key, ...rest }) => rest);
       const cleanAchievements = formData.achievements.map((ach) => ach.value);
       const cleanAwards = formData.awards.map((aw) => aw.value);
 
@@ -921,6 +1018,7 @@ export default function ApplyPage() {
         education: cleanEducation,
         projects: cleanProjects,
         certifications: cleanCertifications,
+        languages: cleanLanguages,
         achievements: cleanAchievements,
         awards: cleanAwards,
         custom_fields: builtCustomFields,
@@ -1060,6 +1158,46 @@ export default function ApplyPage() {
           )}
 
           <form onSubmit={handleFormSubmit} className="mx-auto w-full space-y-6">
+            {/* Work Authorization — asked first since it gates submission,
+                and resume parsing always resets it to "No" (a resume can
+                never truthfully confirm this), so it needs to be seen and
+                addressed before a candidate fills out the rest. */}
+            <Card className="rounded-2xl border-khalti/30 bg-khalti/5 p-6 sm:p-8">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Are you legally authorized to work in Nepal? <span className="text-khalti">*</span>
+                </Label>
+                <RadioGroup
+                  value={formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no"}
+                  onValueChange={(v) => updateSummary("authorized_to_work_in_nepal", v === "yes")}
+                  className="flex gap-3"
+                >
+                  {[
+                    { value: "yes", label: "Yes" },
+                    { value: "no", label: "No" },
+                  ].map((o) => (
+                    <Label
+                      key={o.value}
+                      htmlFor={`auth-${o.value}`}
+                      className={`flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${(formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no") === o.value
+                        ? "border-khalti bg-white text-foreground"
+                        : "border-border bg-white hover:border-khalti/40"
+                        }`}
+                    >
+                      <RadioGroupItem id={`auth-${o.value}`} value={o.value} />
+                      {o.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+                {!formData.professional_summary.authorized_to_work_in_nepal && (
+                  <p className="text-xs text-destructive mt-1.5 font-medium">
+                    ⚠️ You must be legally authorized to work in Nepal to submit your application.
+                    {file && " Uploading a resume resets this — please confirm again."}
+                  </p>
+                )}
+              </div>
+            </Card>
+
             {/* Personal Info Section */}
             <Card className="rounded-2xl border-border/70 p-6 sm:p-8">
               <SectionHeader step="Section 1" title="Personal Information" />
@@ -1229,38 +1367,6 @@ export default function ApplyPage() {
                   />
                 </div>
 
-                <div className="space-y-2 border-t pt-4">
-                  <Label className="text-sm font-medium">
-                    Are you legally authorized to work in Nepal? <span className="text-khalti">*</span>
-                  </Label>
-                  <RadioGroup
-                    value={formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no"}
-                    onValueChange={(v) => updateSummary("authorized_to_work_in_nepal", v === "yes")}
-                    className="flex gap-3"
-                  >
-                    {[
-                      { value: "yes", label: "Yes" },
-                      { value: "no", label: "No" },
-                    ].map((o) => (
-                      <Label
-                        key={o.value}
-                        htmlFor={`auth-${o.value}`}
-                        className={`flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${(formData.professional_summary.authorized_to_work_in_nepal ? "yes" : "no") === o.value
-                          ? "border-khalti bg-khalti/5 text-foreground"
-                          : "border-border bg-white hover:border-khalti/40"
-                          }`}
-                      >
-                        <RadioGroupItem id={`auth-${o.value}`} value={o.value} />
-                        {o.label}
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                  {!formData.professional_summary.authorized_to_work_in_nepal && (
-                    <p className="text-xs text-destructive mt-1.5 font-medium">
-                      ⚠️ You must be legally authorized to work in Nepal to submit your application.
-                    </p>
-                  )}
-                </div>
               </div>
             </Card>
 
@@ -1311,6 +1417,7 @@ export default function ApplyPage() {
                         id={`experience.${idx}.company_name`}
                         label="Company Name"
                         required
+                        prefilled={isPrefilled(`experience.${idx}.company_name`)}
                         value={exp.company_name}
                         onChange={(e) => updateExperience(idx, "company_name", e.target.value)}
                         error={errors[`experience.${idx}.company_name`]}
@@ -1319,6 +1426,7 @@ export default function ApplyPage() {
                         id={`experience.${idx}.job_title`}
                         label="Job Title"
                         required
+                        prefilled={isPrefilled(`experience.${idx}.job_title`)}
                         value={exp.job_title}
                         onChange={(e) => updateExperience(idx, "job_title", e.target.value)}
                         error={errors[`experience.${idx}.job_title`]}
@@ -1326,6 +1434,7 @@ export default function ApplyPage() {
                       <FormField
                         id={`experience.${idx}.employment_type`}
                         label="Employment Type"
+                        prefilled={isPrefilled(`experience.${idx}.employment_type`)}
                         value={exp.employment_type}
                         onChange={(e) => updateExperience(idx, "employment_type", e.target.value)}
                         hint="e.g. Full-time, Part-time, Internship"
@@ -1333,6 +1442,7 @@ export default function ApplyPage() {
                       <FormField
                         id={`experience.${idx}.location`}
                         label="Location"
+                        prefilled={isPrefilled(`experience.${idx}.location`)}
                         value={exp.location}
                         onChange={(e) => updateExperience(idx, "location", e.target.value)}
                       />
@@ -1340,6 +1450,7 @@ export default function ApplyPage() {
                         id={`experience.${idx}.start_date`}
                         label="Start Date"
                         type="date"
+                        prefilled={isPrefilled(`experience.${idx}.start_date`)}
                         value={exp.start_date}
                         onChange={(e) => updateExperience(idx, "start_date", e.target.value)}
                         error={errors[`experience.${idx}.start_date`]}
@@ -1348,6 +1459,7 @@ export default function ApplyPage() {
                         id={`experience.${idx}.end_date`}
                         label="End Date"
                         type="date"
+                        prefilled={isPrefilled(`experience.${idx}.end_date`)}
                         value={exp.end_date}
                         disabled={exp.currently_working}
                         onChange={(e) => updateExperience(idx, "end_date", e.target.value)}
@@ -1372,6 +1484,7 @@ export default function ApplyPage() {
                       id={`experience.${idx}.work_summary`}
                       as="textarea"
                       label="Work Summary / Duties"
+                      prefilled={isPrefilled(`experience.${idx}.work_summary`)}
                       value={exp.work_summary}
                       onChange={(e) => updateExperience(idx, "work_summary", e.target.value)}
                     />
@@ -1379,6 +1492,7 @@ export default function ApplyPage() {
                     <FormField
                       id={`experience.${idx}.technologies_used`}
                       label="Skills"
+                      prefilled={isPrefilled(`experience.${idx}.technologies_used`)}
                       value={exp.technologies_used.join(", ")}
                       onChange={(e) =>
                         updateExperience(
@@ -1444,6 +1558,7 @@ export default function ApplyPage() {
                         id={`education.${idx}.degree`}
                         label="Degree / Qualification"
                         required
+                        prefilled={isPrefilled(`education.${idx}.degree`)}
                         value={edu.degree}
                         onChange={(e) => updateEducation(idx, "degree", e.target.value)}
                         error={errors[`education.${idx}.degree`]}
@@ -1453,6 +1568,7 @@ export default function ApplyPage() {
                         id={`education.${idx}.institution_name`}
                         label="Institution Name"
                         required
+                        prefilled={isPrefilled(`education.${idx}.institution_name`)}
                         value={edu.institution_name}
                         onChange={(e) => updateEducation(idx, "institution_name", e.target.value)}
                         error={errors[`education.${idx}.institution_name`]}
@@ -1460,6 +1576,7 @@ export default function ApplyPage() {
                       <FormField
                         id={`education.${idx}.field_of_study`}
                         label="Field of Study"
+                        prefilled={isPrefilled(`education.${idx}.field_of_study`)}
                         value={edu.field_of_study}
                         onChange={(e) => updateEducation(idx, "field_of_study", e.target.value)}
                         hint="e.g. Informatics, Science, Humanities"
@@ -1467,6 +1584,7 @@ export default function ApplyPage() {
                       <FormField
                         id={`education.${idx}.grade`}
                         label="Grade / GPA"
+                        prefilled={isPrefilled(`education.${idx}.grade`)}
                         value={edu.grade}
                         onChange={(e) => updateEducation(idx, "grade", e.target.value)}
                         hint="e.g. GPA 3.8/4.0, 85%"
@@ -1475,6 +1593,7 @@ export default function ApplyPage() {
                         id={`education.${idx}.start_date`}
                         label="Start Date"
                         type="date"
+                        prefilled={isPrefilled(`education.${idx}.start_date`)}
                         value={edu.start_date}
                         onChange={(e) => updateEducation(idx, "start_date", e.target.value)}
                         error={errors[`education.${idx}.start_date`]}
@@ -1483,12 +1602,14 @@ export default function ApplyPage() {
                         id={`education.${idx}.end_date`}
                         label="End Date"
                         type="date"
+                        prefilled={isPrefilled(`education.${idx}.end_date`)}
                         value={edu.end_date}
                         onChange={(e) => updateEducation(idx, "end_date", e.target.value)}
                       />
                       <FormField
                         id={`education.${idx}.location`}
                         label="Location"
+                        prefilled={isPrefilled(`education.${idx}.location`)}
                         value={edu.location}
                         onChange={(e) => updateEducation(idx, "location", e.target.value)}
                       />
@@ -1545,6 +1666,7 @@ export default function ApplyPage() {
                         id={`projects.${idx}.project_name`}
                         label="Project Name"
                         required
+                        prefilled={isPrefilled(`projects.${idx}.project_name`)}
                         value={proj.project_name}
                         onChange={(e) => updateProject(idx, "project_name", e.target.value)}
                         error={errors[`projects.${idx}.project_name`]}
@@ -1552,18 +1674,21 @@ export default function ApplyPage() {
                       <FormField
                         id={`projects.${idx}.github_url`}
                         label="GitHub URL"
+                        prefilled={isPrefilled(`projects.${idx}.github_url`)}
                         value={proj.github_url}
                         onChange={(e) => updateProject(idx, "github_url", e.target.value)}
                       />
                       <FormField
                         id={`projects.${idx}.live_url`}
                         label="Live URL"
+                        prefilled={isPrefilled(`projects.${idx}.live_url`)}
                         value={proj.live_url}
                         onChange={(e) => updateProject(idx, "live_url", e.target.value)}
                       />
                       <FormField
                         id={`projects.${idx}.technologies_used`}
                         label="Skills"
+                        prefilled={isPrefilled(`projects.${idx}.technologies_used`)}
                         value={proj.technologies_used.join(", ")}
                         onChange={(e) =>
                           updateProject(
@@ -1582,6 +1707,7 @@ export default function ApplyPage() {
                       id={`projects.${idx}.description`}
                       as="textarea"
                       label="Project Description"
+                      prefilled={isPrefilled(`projects.${idx}.description`)}
                       value={proj.description}
                       onChange={(e) => updateProject(idx, "description", e.target.value)}
                     />
@@ -1633,6 +1759,7 @@ export default function ApplyPage() {
                             id={`certifications.${idx}.name`}
                             label="Certification Name"
                             required
+                            prefilled={isPrefilled(`certifications.${idx}.name`)}
                             value={cert.name}
                             onChange={(e) => updateCertification(idx, "name", e.target.value)}
                             error={errors[`certifications.${idx}.name`]}
@@ -1640,6 +1767,7 @@ export default function ApplyPage() {
                           <FormField
                             id={`certifications.${idx}.issuer`}
                             label="Issuer"
+                            prefilled={isPrefilled(`certifications.${idx}.issuer`)}
                             value={cert.issuer}
                             onChange={(e) => updateCertification(idx, "issuer", e.target.value)}
                           />
@@ -1647,6 +1775,7 @@ export default function ApplyPage() {
                             id={`certifications.${idx}.issue_date`}
                             label="Issue Date"
                             type="date"
+                            prefilled={isPrefilled(`certifications.${idx}.issue_date`)}
                             value={cert.issue_date}
                             onChange={(e) => updateCertification(idx, "issue_date", e.target.value)}
                           />
@@ -1658,9 +1787,66 @@ export default function ApplyPage() {
               </div>
             </Card>
 
+            {/* Languages Section */}
+            <Card className="rounded-2xl border-border/70 p-6 sm:p-8">
+              <div className="flex items-center justify-between border-b pb-4 mb-6">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-khalti">Section 6</div>
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight">Languages</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Languages you can work in, and your proficiency.</p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={addLanguage}
+                  size="sm"
+                  className="bg-khalti text-khalti-foreground hover:bg-khalti/90 flex items-center gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Language
+                </Button>
+              </div>
+
+              {formData.languages.length === 0 && (
+                <div className="text-center py-8 text-sm text-muted-foreground border-2 border-dashed rounded-xl border-border/50">
+                  No languages added yet. Click "+ Add Language" to list them.
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {formData.languages.map((lang, idx) => (
+                  <div key={lang._key} className="relative p-5 rounded-xl border border-border/80 bg-muted/10 space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => removeLanguage(idx)}
+                      className="absolute top-4 right-4 text-muted-foreground hover:text-destructive p-1 rounded-md hover:bg-muted"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </button>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField
+                        id={`languages.${idx}.language`}
+                        label="Language"
+                        prefilled={isPrefilled(`languages.${idx}.language`)}
+                        value={lang.language}
+                        onChange={(e) => updateLanguage(idx, "language", e.target.value)}
+                      />
+                      <FormField
+                        id={`languages.${idx}.proficiency`}
+                        label="Proficiency"
+                        prefilled={isPrefilled(`languages.${idx}.proficiency`)}
+                        value={lang.proficiency}
+                        onChange={(e) => updateLanguage(idx, "proficiency", e.target.value)}
+                        hint="e.g. Native, Fluent, Conversational"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
             {/* Dynamic Achievements list */}
             <Card className="rounded-2xl border-border/70 p-6 sm:p-8">
-              <SectionHeader step="Section 6" title="Achievements & Awards" />
+              <SectionHeader step="Section 7" title="Achievements & Awards" />
               <div className="space-y-6">
                 {/* Achievements List */}
                 <div className="border-b pb-4">
@@ -1689,6 +1875,7 @@ export default function ApplyPage() {
                           <FormField
                             id={`achievements.${idx}`}
                             label=""
+                            prefilled={isPrefilled(`achievements.${idx}`)}
                             value={ach.value}
                             onChange={(e) => updateAchievement(idx, e.target.value)}
                           />
@@ -1732,6 +1919,7 @@ export default function ApplyPage() {
                           <FormField
                             id={`awards.${idx}`}
                             label=""
+                            prefilled={isPrefilled(`awards.${idx}`)}
                             value={aw.value}
                             onChange={(e) => updateAward(idx, e.target.value)}
                           />
@@ -1754,7 +1942,7 @@ export default function ApplyPage() {
             <Card className="rounded-2xl border-border/70 p-6 sm:p-8">
               <div className="flex items-center justify-between mb-6 border-b border-border/60 pb-4">
                 <div className="flex-1">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-khalti">Section 7</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-khalti">Section 8</div>
                   <h2 className="mt-1 text-lg font-semibold tracking-tight">Additional Information</h2>
                 </div>
                 <Button

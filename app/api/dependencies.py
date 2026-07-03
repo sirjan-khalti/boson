@@ -36,6 +36,20 @@ def get_current_user(
         raise UnauthorizedError()
     return current_user
 
+def get_current_user_optional(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Like get_current_user, but returns None instead of raising when there's
+    no (or an invalid) session — for endpoints reachable both anonymously and
+    by a logged-in recruiter, where the caller's identity changes behavior
+    rather than gating access."""
+    try:
+        return get_current_user(request, token, db)
+    except UnauthorizedError:
+        return None
+
 def requires_recruiter(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role not in (Role.SUPERADMIN, Role.ADMIN, Role.RECRUITER):
         raise ForbiddenError()

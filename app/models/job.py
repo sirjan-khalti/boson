@@ -20,7 +20,7 @@ class Job(BaseModelDB):
     )
     closed_date = Column(Date, nullable=True)
     applicants = Column(Integer, default=0)
-    postedDate = Column(DateTime, default=datetime.now)
+    posted_date = Column(DateTime, default=datetime.now)
     description = Column(Text, nullable=False)
     skills = Column(JSONB, default=list)
     scoring_criteria = Column(JSONB, nullable=False, default=list)

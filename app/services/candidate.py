@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.constants import (
+    CANDIDATE_ALLOWED_SORT_FIELDS,
     CANDIDATE_SOURCE_CAREERS_PAGE,
+    CANDIDATE_SOURCE_REFERRAL,
     DEFAULT_SALARY_EXPECTATION,
     DEFAULT_SCORING_CRITERIA,
     MATCH_SCORE_MODERATE_FIT_THRESHOLD,
@@ -21,8 +23,9 @@ from app.core.exceptions import ServiceError
 from app.core.logger import logger
 from app.models.candidate import Candidate
 from app.models.job import Job
+from app.models.user import User
 from app.schemas.activity_log import ActionType
-from app.schemas.candidate import CandidateCreate, DateRangeFilter, EvaluationStatus, JobScopeFilter, Tier
+from app.schemas.candidate import CandidateCreate, CandidateStage, DateRangeFilter, EvaluationStatus, JobScopeFilter, Tier
 from app.schemas.job import JobStatus
 from app.services.activity_log import log_activity
 from app.services.cv_store import save_cv
@@ -144,6 +147,7 @@ async def submit_application(
     candidate_json: str,
     file: Optional[UploadFile],
     background_tasks: BackgroundTasks,
+    submitted_by: Optional[User] = None,
 ) -> Candidate:
     try:
         cand_dict = json.loads(candidate_json)
@@ -225,6 +229,7 @@ async def submit_application(
         or DEFAULT_SALARY_EXPECTATION
     )
     meta_notice = f"{prof_summary.get('notice_period_days', 0)} days"
+    source = CANDIDATE_SOURCE_REFERRAL if submitted_by else CANDIDATE_SOURCE_CAREERS_PAGE
 
     db_candidate = Candidate(
         jobId=cand_obj.jobId,
@@ -245,7 +250,7 @@ async def submit_application(
         workHistory=legacy_work,
         salaryExpectation=meta_salary,
         noticePeriod=meta_notice,
-        source=CANDIDATE_SOURCE_CAREERS_PAGE,
+        source=source,
         personal_info=personal,
         professional_summary=prof_summary,
         experience_history=exp_list,
@@ -285,19 +290,46 @@ async def submit_application(
         candidate_data=cand_data,
     )
 
-    log_activity(
-        db=db,
-        action_type=ActionType.CANDIDATE_APPLIED,
-        description=f"Candidate {db_candidate.name} applied for job '{job.title}'",
-        user_name="System (Applicant)",
-        user_email=db_candidate.email,
-        job_id=job.id,
-        candidate_id=db_candidate.id,
-    )
+    if submitted_by:
+        log_activity(
+            db=db,
+            action_type=ActionType.CANDIDATE_APPLIED,
+            description=f"{submitted_by.name} ({submitted_by.role}) added candidate {db_candidate.name} as a referral for job '{job.title}'",
+            user_name=submitted_by.name,
+            user_email=submitted_by.email,
+            job_id=job.id,
+            candidate_id=db_candidate.id,
+        )
+    else:
+        log_activity(
+            db=db,
+            action_type=ActionType.CANDIDATE_APPLIED,
+            description=f"Candidate {db_candidate.name} applied for job '{job.title}'",
+            user_name="System (Applicant)",
+            user_email=db_candidate.email,
+            job_id=job.id,
+            candidate_id=db_candidate.id,
+        )
 
     db.commit()
     db.refresh(db_candidate)
     return db_candidate
+
+
+def get_filter_options(db: Session) -> dict:
+    """
+    All option lists the recruiter view's candidate filter bar needs, in one
+    call: stages and tiers are fixed enums (every value is always offered,
+    even ones with zero candidates right now, matching a normal dropdown);
+    sources is genuinely dynamic data, since new intake channels can appear
+    without a code change.
+    """
+    source_rows = db.query(Candidate.source).distinct().all()
+    return {
+        "stages": [s.value for s in CandidateStage],
+        "tiers": [t.value for t in Tier if t != Tier.PENDING],
+        "sources": sorted(r[0] for r in source_rows if r[0]),
+    }
 
 
 def get_paginated(
@@ -310,6 +342,7 @@ def get_paginated(
     minExp: Optional[float],
     stage: Optional[str],
     tiers: Optional[List[str]],
+    source: Optional[str],
     sort_by: str,
     sort_order: str,
 ) -> dict:
@@ -333,6 +366,9 @@ def get_paginated(
     if minExp is not None and minExp > 0:
         query = query.filter(Candidate.experience >= minExp)
 
+    if source:
+        query = query.filter(Candidate.source == source)
+
     if stage and stage != "All":
         query = query.filter(Candidate.stage == stage)
 
@@ -349,8 +385,7 @@ def get_paginated(
             query = query.filter(Candidate.tier.in_(actual_tiers))
 
     # Sorting
-    ALLOWED_SORT_FIELDS = {"name", "match", "experience", "stage", "appliedDate", "title", "location"}
-    if sort_by not in ALLOWED_SORT_FIELDS:
+    if sort_by not in CANDIDATE_ALLOWED_SORT_FIELDS:
         sort_by = "match"
 
     if sort_by == "appliedDate":

@@ -79,6 +79,8 @@ export const api = {
   },
   getCandidateById: (id: string) =>
     apiFetch<Candidate>(`/candidates/${id}`),
+  getCandidateFilterOptions: () =>
+    apiFetch<{ stages: string[]; tiers: string[]; sources: string[] }>("/candidates/filters"),
   submitCandidate: (data: Partial<Candidate>) =>
     apiFetch<Candidate>("/candidates/submit", {
       method: "POST",

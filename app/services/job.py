@@ -77,7 +77,7 @@ def can_reopen(job: Job) -> bool:
     """Returns False if the job has been closed for JOB_ARCHIVE_AFTER_DAYS+ (archived)."""
     if job.status != JobStatus.CLOSED:
         return True
-    closed_date = job.closed_date or job.postedDate.date()
+    closed_date = job.closed_date or job.posted_date.date()
     return (datetime.now().date() - closed_date).days < JOB_ARCHIVE_AFTER_DAYS
 
 

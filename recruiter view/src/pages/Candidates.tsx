@@ -9,8 +9,6 @@ import type { MatchTier } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
-const ALL_STAGES = ["All", "Applied", "Screening", "Shortlisted", "Interview", "Final Review", "Offer", "Hired", "Rejected"];
-
 export default function CandidatesPage() {
   const candidates = useAts((s) => s.candidates);
   const jobs = useAts((s) => s.jobs);
@@ -28,6 +26,12 @@ export default function CandidatesPage() {
   const [debouncedMinExp, setDebouncedMinExp] = useState(0);
   const [stage, setStage] = useState<string>("All");
   const [tiers, setTiers] = useState<Set<MatchTier>>(new Set());
+  const [source, setSource] = useState<string>("All");
+  const [filterOptions, setFilterOptions] = useState<{ stages: string[]; tiers: string[]; sources: string[] }>({
+    stages: [],
+    tiers: [],
+    sources: [],
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Sorting State
@@ -86,6 +90,13 @@ export default function CandidatesPage() {
     if (jobs.length === 0) fetchJobs();
   }, [jobs.length, fetchJobs]);
 
+  // Stage/tier/source option lists come from the backend, not hardcoded
+  // here — stages and tiers are the source-of-truth enums, sources is
+  // genuinely dynamic data. One call instead of duplicating each list.
+  useEffect(() => {
+    api.getCandidateFilterOptions().then(setFilterOptions).catch(() => {});
+  }, []);
+
   const selectedJob = jobId ? jobs.find((j) => j.id === jobId) : null;
 
   const candidateJobs = useMemo(() => {
@@ -99,6 +110,7 @@ export default function CandidatesPage() {
     mExp?: number,
     stg?: string,
     trs?: Set<MatchTier>,
+    src?: string,
     sField?: string,
     sOrder?: "asc" | "desc",
     pg?: number,
@@ -113,6 +125,7 @@ export default function CandidatesPage() {
         minExp: mExp || undefined,
         stage: stg === "All" ? undefined : stg,
         tiers: trs && trs.size > 0 ? Array.from(trs).join(",") : undefined,
+        source: src === "All" ? undefined : src,
         sort_by: sField,
         sort_order: sOrder,
         page: pg,
@@ -138,12 +151,13 @@ export default function CandidatesPage() {
       debouncedMinExp,
       stage,
       tiers,
+      source,
       sortField,
       sortOrder,
       page,
       size
     );
-  }, [jobId, debouncedQ, debouncedMinScore, debouncedMinExp, stage, tiers, sortField, sortOrder, page, size]);
+  }, [jobId, debouncedQ, debouncedMinScore, debouncedMinExp, stage, tiers, source, sortField, sortOrder, page, size]);
 
   // Reset page to 1 if Job URL param changes
   useEffect(() => {
@@ -200,6 +214,7 @@ export default function CandidatesPage() {
         minExp: debouncedMinExp || undefined,
         stage: stage === "All" ? undefined : stage,
         tiers: tiers.size > 0 ? Array.from(tiers).join(",") : undefined,
+        source: source === "All" ? undefined : source,
         sort_by: sortField,
         sort_order: sortOrder,
         page: 1,
@@ -322,7 +337,7 @@ export default function CandidatesPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fetchCandidatesData(jobId, debouncedQ, debouncedMinScore, debouncedMinExp, stage, tiers, sortField, sortOrder, page, size)}
+            onClick={() => fetchCandidatesData(jobId, debouncedQ, debouncedMinScore, debouncedMinExp, stage, tiers, source, sortField, sortOrder, page, size)}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm hover:bg-muted transition text-foreground"
             title="Refresh candidate list"
           >
@@ -382,7 +397,20 @@ export default function CandidatesPage() {
           }}
           className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
         >
-          {ALL_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+          <option value="All">All</option>
+          {filterOptions.stages.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select
+          value={source}
+          onChange={(e) => {
+            setSource(e.target.value);
+            setPage(1);
+          }}
+          className="h-9 rounded-lg border border-border bg-background px-2 text-sm"
+        >
+          <option value="All">All sources</option>
+          {filterOptions.sources.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
@@ -424,7 +452,8 @@ export default function CandidatesPage() {
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {(["Strong Fit", "Moderate Fit", "Weak Fit"] as MatchTier[]).map((t) => {
+            {filterOptions.tiers.map((tStr) => {
+              const t = tStr as MatchTier;
               const active = tiers.has(t);
               return (
                 <button
@@ -513,8 +542,8 @@ export default function CandidatesPage() {
                   <th onClick={() => handleSort("name")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
                     Candidate{renderSortIcon("name")}
                   </th>
-                  <th onClick={() => handleSort("salaryExpectation")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
-                    Expected Salary{renderSortIcon("salaryExpectation")}
+                  <th className="px-3 py-2.5 text-left font-medium select-none">
+                    Expected Salary
                   </th>
                   <th onClick={() => handleSort("match")} className="px-3 py-2.5 text-left font-medium cursor-pointer hover:bg-muted/60 select-none">
                     Match{renderSortIcon("match")}

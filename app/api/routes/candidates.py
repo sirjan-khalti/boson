@@ -23,7 +23,7 @@ from app.schemas.candidate import (
     PaginatedCandidatesResponse,
 )
 from app.core.config import settings
-from app.api.dependencies import get_current_user, requires_recruiter
+from app.api.dependencies import get_current_user, get_current_user_optional, requires_recruiter
 from app.services.recaptcha import verify_recaptcha
 from app.core.limiter import limiter
 from app.services import candidate as candidate_service
@@ -60,8 +60,12 @@ async def submit_application(
     candidate: str = Form(...),
     file: UploadFile = File(None),
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
-    return await candidate_service.submit_application(db, candidate, file, background_tasks)
+    # Reachable both anonymously (public careers page) and from the logged-in
+    # recruiter portal's Upload CV flow — the service uses current_user's
+    # presence to set source ("Careers Page" vs "Referral").
+    return await candidate_service.submit_application(db, candidate, file, background_tasks, current_user)
 
 
 @router.get("/fetch", response_model=PaginatedCandidatesResponse, dependencies=[Depends(get_current_user)])
@@ -74,13 +78,19 @@ def get_candidates(
     minExp: Optional[float] = Query(None),
     stage: Optional[str] = Query(None),
     tiers: Optional[List[str]] = Query(None),
+    source: Optional[str] = Query(None),
     sort_by: str = Query("match"),
     sort_order: str = Query("desc"),
     db: Session = Depends(get_db),
 ):
     return candidate_service.get_paginated(
-        db, page, size, jobId, search, minScore, minExp, stage, tiers, sort_by, sort_order
+        db, page, size, jobId, search, minScore, minExp, stage, tiers, source, sort_by, sort_order
     )
+
+
+@router.get("/filters", dependencies=[Depends(get_current_user)])
+def get_candidate_filter_options(db: Session = Depends(get_db)):
+    return candidate_service.get_filter_options(db)
 
 
 @router.get("/reports", dependencies=[Depends(get_current_user)])

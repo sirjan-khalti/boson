@@ -31,13 +31,17 @@ GROQ_CLIENT_MAX_RETRIES = 0
 MATCH_SCORE_STRONG_FIT_THRESHOLD = 80
 MATCH_SCORE_MODERATE_FIT_THRESHOLD = 50
 
-CANDIDATE_ALLOWED_SORT_FIELDS = {"name", "match", "experience", "stage", "appliedDate", "title", "location"}
+# Keep in sync with the sortable <th> columns in
+# recruiter view/src/pages/Candidates.tsx — a frontend column that isn't
+# listed here silently falls back to sorting by match instead of erroring.
+CANDIDATE_ALLOWED_SORT_FIELDS = {"name", "match", "experience", "stage", "appliedDate"}
 
 # =========================================================
 # CANDIDATE SUBMISSION DEFAULTS
 # =========================================================
 DEFAULT_SALARY_EXPECTATION = "Negotiable"
 CANDIDATE_SOURCE_CAREERS_PAGE = "Careers Page"
+CANDIDATE_SOURCE_REFERRAL = "Referral"
 
 # =========================================================
 # JOBS
